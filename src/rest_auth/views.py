@@ -10,8 +10,8 @@ from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 
-from .serializers import UserRegistrationSerializer
 from .models import EmailConfirmation
+from .serializers import UserRegistrationSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -96,12 +96,10 @@ class EmailConfirmationView(APIView):
 
 class ChangePasswordView(APIView):
 
-    # try it later
-    #authentication_classes = [TokenAuthentication]
+    authentication_classes = [TokenAuthentication]
 
     def post(self, request, *args, **kwargs):
         
-        username = request.data.get("username")
         old_password = request.data.get("old_password")
         new_password = request.data.get("new_password")
         confrim_password = request.data.get("confrim_password")
@@ -115,16 +113,26 @@ class ChangePasswordView(APIView):
         if new_password != confrim_password:
             return Response({"Error": "password not match."})
 
-        if not all([username, old_password, new_password]):
+        if not all([old_password, new_password]):
             return Response({"Error": "An error occurred."})
         
-        user = User.objects.get(username__iexact=username)
+        user = request.user
         if user.check_password(old_password):
             user.set_password(new_password)
             user.save()
             return Response({"message": "Password set successfuly."})
         return Response({"Error": "Something went wrong."})
 
+
+class UserView(APIView):
+    authentication_classes = [TokenAuthentication]
+
+    def get(self, request, *args, **kwargs):
+
+        user = request.user
+        serializer = UserSerializer(user, many=False)
+
+        return Response(serializer.data)
 
 class ForgotPasswordView(APIView):
     ...
@@ -133,6 +141,7 @@ class ForgotPasswordView(APIView):
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
+user_view = UserView.as_view()
 change_password_view = ChangePasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()
