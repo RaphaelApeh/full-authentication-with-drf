@@ -1,7 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import authenticate
-from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import (ObjectDoesNotExist,
+                                    ValidationError)
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -91,6 +93,39 @@ class EmailConfirmationView(APIView):
 
             return Response({"Error": "User does not exists."})
 
+
+class ChangePasswordView(APIView):
+
+    # try it later
+    #authentication_classes = [TokenAuthentication]
+
+    def post(self, request, *args, **kwargs):
+        
+        username = request.data.get("username")
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+        confrim_password = request.data.get("confrim_password")
+        
+        try:
+            validate_password(new_password)
+        except ValidationError as e:
+    
+            return Response({"Error": f" ".join(e)})    
+
+        if new_password != confrim_password:
+            return Response({"Error": "password not match."})
+
+        if not all([username, old_password, new_password]):
+            return Response({"Error": "An error occurred."})
+        
+        user = User.objects.get(username__iexact=username)
+        if user.check_password(old_password):
+            user.set_password(new_password)
+            user.save()
+            return Response({"message": "Password set successfuly."})
+        return Response({"Error": "Something went wrong."})
+
+
 class ForgotPasswordView(APIView):
     ...
 
@@ -98,5 +133,6 @@ class ForgotPasswordView(APIView):
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
+change_password_view = ChangePasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()

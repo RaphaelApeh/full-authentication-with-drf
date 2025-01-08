@@ -22,3 +22,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         validated_data.pop("password2")
         return User.objects.create_user(password=password, **validated_data)
+
+    
+class UserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ["username", "email"]
