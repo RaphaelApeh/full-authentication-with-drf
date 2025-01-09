@@ -31,10 +31,10 @@ POST http://127.0.0.1:8000/api/confirm-email/7/cjb3om-dd49e1f17b98dea01c5fffa994
 
 ###
 GET http://127.0.0.1:8000/api/user/ HTTP/1.1
-Authorization: Token 178bd499cf3b5944184815b0bdef646794ecc900
+Authorization: Token 0b2a538bc51978fb9b5f4d604fb2ac2fbf8ae255
 
 ###
-POST http://127.0.0.1:8000/api/user/ HTTP/1.1
+GET http://127.0.0.1:8000/api/user/ HTTP/1.1
 Content-Type: application/json
 Authorization: Token 178bd499cf3b5944184815b0bdef646794ecc900
 

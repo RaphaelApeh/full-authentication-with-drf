@@ -1,0 +1,34 @@
+{% extends "./base.html" %}
+
+{% block content %}
+    <div class="max-w-max px-5 py-5 mx-auto mt-10  ">
+        <form action="">
+            <h2 class="text-3xl mb-3 font-medium">Sign Up</h2>
+            <div class="flex gap-2">
+                <div>
+                    <label for="" >Username</label><br>
+                    <input type="text" required class="w-full border border-2  focus:outline-none p-1 pl-2 my-2 rounded-xl">
+                </div>
+            </div>
+            <div class="flex flex-col">
+                <label for="email">Email</label>
+                <input type="email" required class="border border-2  focus:outline-none p-1 pl-2 my-2 rounded-xl">
+            </div>
+            <div class="flex gap-2">
+                <div>
+                    <label for="">Password</label><br>
+                    <input type="password" required class="w-full border border-2 focus:outline-none p-1 pl-2 my-2 rounded-xl">
+                </div>
+                <div>
+                    <label for="">Re-Enter Password</label><br>
+                    <input type="password" required class="w-full border-2 p-1 pl-2 my-2 focus:outline-none rounded-xl">
+                </div>
+            </div>
+            <div  class="flex bg-black text-white w-17 justify-center   hover:bg-gray-600 mt-5 mb-5 rounded-xl">
+                <button type="submit" class="p-1">Sign Up</button>
+            </div>
+            <p>Already have an account? <a href="/login/" class="text-blue-900">Login </a></p>
+        </form>
+    </div>
+
+{% endblock %}

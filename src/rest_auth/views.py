@@ -23,7 +23,7 @@ class RegistrationView(APIView):
 
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
-            return Response({"Error": f"Invaild data {serializer.errors}."})
+            return Response({"Error": serializer.errors})
         email = serializer.validated_data.get("email")
         if email is None:
             return Response({'Error':"Invaild Email."})
@@ -139,7 +139,7 @@ class UserView(APIView):
         """
         update user credentials
         """
-        serializer = self.get_serializer(data=request.data, many=False)
+        serializer = self.get_serializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
