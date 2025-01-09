@@ -32,14 +32,13 @@ class RegistrationView(APIView):
         user  = User.objects.filter(username=username).first()
         token = default_token_generator.make_token(user)
         link_to_confirm = request.build_absolute_uri(f"/api/confirm-email/{user.pk}/{token}/")
-        user.email_user("Email Comfirmation", f"Verify email:{link_to_confirm}")
+        user.email_user("Email Comfirmation", f"Dear {user.username}, Verify your email:{link_to_confirm}")
 
         
         return Response({'message': "A verification email has been sent to you."})
         
 
     def get_serializer(self, *args, **kwargs):
-
         return self.serializer_class(*args, context={'request', self.request}, **kwargs)
     
 
@@ -69,6 +68,7 @@ class LogoutView(APIView):
     def post(self, request, *args, **kwargs):
         try:
             request.auth.delete()
+            return Response({"message": "Logedout successfully"})
         except:
             return Response({"Error": "Invalid data."})
         
@@ -130,9 +130,25 @@ class UserView(APIView):
     def get(self, request, *args, **kwargs):
 
         user = request.user
-        serializer = UserSerializer(user, many=False)
+        serializer = self.get_serializer(user, many=False)
 
         return Response(serializer.data)
+
+
+    def post(self, request, *args, **kwargs):
+        """
+        update user credentials
+        """
+        serializer = self.get_serializer(data=request.data, many=False)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+    def get_serializer(self, *args, **kwargs):
+
+        return UserSerializer(*args, context={'request': self.request}, **kwargs)
+
 
 class ForgotPasswordView(APIView):
     ...

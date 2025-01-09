@@ -11,17 +11,17 @@ Authorization: Token 299d506ec3da314fe7fd1095666ed50c755a645a
 ###
 POST http://127.0.0.1:8000/api/logout/ HTTP/1.1
 Content-Type: application/json
-Authorization: Token 299d506ec3da314fe7fd1095666ed50c755a645a
+Authorization: Token 23ad3ac4319018fdfdf46187de98b2c0a2c0857b
 
 ###
 POST http://127.0.0.1:8000/api/register/ HTTP/1.1
 Content-Type: application/json
 
 {
-    "username": "testuser1",
+    "username": "testusers1",
     "email": "testuser@test.test",
-    "password": "testpassword1",
-    "password2": "testpassword1"
+    "password": "testpassword",
+    "password2": "testpassword"
 }
 
 ###
@@ -31,4 +31,16 @@ POST http://127.0.0.1:8000/api/confirm-email/7/cjb3om-dd49e1f17b98dea01c5fffa994
 
 ###
 GET http://127.0.0.1:8000/api/user/ HTTP/1.1
-Authorization: Token 299d506ec3da314fe7fd1095666ed50c755a645a
+Authorization: Token 178bd499cf3b5944184815b0bdef646794ecc900
+
+###
+POST http://127.0.0.1:8000/api/user/ HTTP/1.1
+Content-Type: application/json
+Authorization: Token 178bd499cf3b5944184815b0bdef646794ecc900
+
+{
+    "username": "updated_username",
+    "email": "testapp@test.test",
+    "first_name": "Instance_name",
+    "last_name": "updated_name"
+}

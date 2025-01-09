@@ -26,6 +26,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
 class UserSerializer(serializers.ModelSerializer):
 
+    full_name = serializers.CharField(source="get_full_name", read_only=True)
+
     class Meta:
         model = User
-        fields = ["username", "email"]
+        fields = ["username", "email", "first_name", "last_name", "full_name"]
+
+    def update(self, instance, validated_data):
+
+        instance = super().update(instance, validated_data)
+
+        instance.username = validated_data.get("username", instance.username)
+        instance.email = validated_data.get("email", instance.email)
+        instance.first_name = validated_data.get("first_name", instance.first_name)
+        instance.last_name = validated_data.get("last_name", instance.last_name)
+        instance.save()
+
+        return instance
