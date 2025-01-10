@@ -9,3 +9,7 @@ class LoginView(TemplateView):
 class SignUpView(TemplateView):
 
     template_name = "sign_up.html"
+
+
+login_view = LoginView.as_view()
+sign_up_view = SignUpView.as_view()
