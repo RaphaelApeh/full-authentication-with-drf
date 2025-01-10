@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import authenticate
+from django.core.validators import validate_email
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import (ObjectDoesNotExist,
                                     ValidationError)
@@ -52,11 +53,12 @@ class LoginView(APIView):
         }
         try:
             user = authenticate(request, **credentials)
-            if user.is_active:
-                token, _ = Token.objects.get_or_create(user=user)
-            
-                return Response({"token": token.key})
-            return Response({"Error": "User is not verifed."})
+            if user is not None:
+                if user.is_active:
+                    token, _ = Token.objects.get_or_create(user=user)
+                
+                    return Response({"token": token.key})
+            return Response({"Error": "Invalid data."})
         except Exception as e:
             return Response({"Error": f"Invalid data {e}."})
 
@@ -120,7 +122,7 @@ class ChangePasswordView(APIView):
         if user.check_password(old_password):
             user.set_password(new_password)
             user.save()
-            return Response({"message": "Password set successfuly."})
+            return Response({"message": "Password set successfully."})
         return Response({"Error": "Something went wrong."})
 
 
@@ -151,13 +153,38 @@ class UserView(APIView):
 
 
 class ForgotPasswordView(APIView):
-    ...
+    
+
+    def post(self, request, *args, **kwargs):
+
+        email  = request.data.get("email")
+        if email is not None:
+            try:
+                validate_email(email)
+            except ValidationError as e:
+                return Response({"Error": " ".join(e)})
+        qs = User.objects.filter(email__iexact=email)
+        if qs.exists():
+            user = qs.get()
+            token = default_token_generator.make_token(user)
+            link = request.build_absolute_uri(f"/new-password/{user.pk}/{token}/")
+            user.email_user("Forgot Password ?", f"Dear {user.username}, Link to change password {link} ")
+
+            return Response({"message": "Email sent."})
+        return Response({"Error": f"{email} does not exists."})
 
 
+class ChangeForgotPasswordView(APIView):
+
+
+    def post(self, request, *args, **kwargs):
+
+        ...
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
 user_view = UserView.as_view()
+forgot_password_view = ForgotPasswordView.as_view()
 change_password_view = ChangePasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()
