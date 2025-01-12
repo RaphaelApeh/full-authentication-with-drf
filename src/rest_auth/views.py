@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import authenticate
@@ -6,6 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import (ObjectDoesNotExist,
                                     ValidationError)
 
+from rest_framework import permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
@@ -32,7 +34,8 @@ class RegistrationView(APIView):
         username = serializer.validated_data.get("username")
         user  = User.objects.filter(username=username).first()
         token = default_token_generator.make_token(user)
-        link_to_confirm = request.build_absolute_uri(f"/api/confirm-email/{user.pk}/{token}/")
+        url = settings.DEFAULT_EMAIL_CONFIRMATION_URL or "/api/confirm-email/"
+        link_to_confirm = request.build_absolute_uri(f"{url}{user.pk}/{token}/")
         user.email_user("Email Comfirmation", f"Dear {user.username}, Verify your email:{link_to_confirm}")
 
         
@@ -89,9 +92,8 @@ class EmailConfirmationView(APIView):
                 _email = EmailConfirmation.objects.get(user=user)
                 _email.is_confirmed = True
                 _email.save()
-                return Response({"message": "User is verifed."})
-        
-        except ObjectDoesNotExist:
+                return Response({"message": f"Email {_email.email} is confirmed."})
+        except:
 
             return Response({"Error": "User does not exists."})
 
@@ -167,8 +169,9 @@ class ForgotPasswordView(APIView):
         if qs.exists():
             user = qs.get()
             token = default_token_generator.make_token(user)
-            link = request.build_absolute_uri(f"/new-password/{user.pk}/{token}/")
-            user.email_user("Forgot Password ?", f"Dear {user.username}, Link to change password {link} ")
+            url = settings.FORGOT_PASSWORD_URL or "/api/new-password/"
+            host_url = request.build_absolute_uri(f"{url}{user.pk}/{token}/")
+            user.email_user("Forgot Password ?", f"Dear {user.username}, Link to change password {host_url} ")
 
             return Response({"message": "Email sent."})
         return Response({"Error": f"{email} does not exists."})
@@ -179,12 +182,58 @@ class ChangeForgotPasswordView(APIView):
 
     def post(self, request, *args, **kwargs):
 
-        ...
+        user_pk = kwargs["user_pk"]
+        token = kwargs["token"]
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+        
+        qs = User.objects.filter(pk=user_pk)
+        if not qs.exists():
+            return Response({"error": "Invalid data."})
+        try:
+            validate_password(new_password)
+        except ValidationError as e:
+            return Response({"error": " ".join(e)})
+        if new_password != confirm_password:
+            return Response({'error': "Password not match.."})
+        try:
+            _user = qs.first()
+        except (User.MultipleObjectsReturned, User.DoesNotExist):
+            return Response({"error": "Error ..."})
+        if default_token_generator.check_token(_user, token):
+            _user.set_password(new_password)
+            _user.save()
+            return Response({"message": "password set successfully."})
+        return Response({"error": "Something went wrong."})
+
+
+class AllUsersView(APIView):
+
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = UserSerializer
+
+    def get(self, request, *args, **kwargs):
+
+        query = request.query_params.get("q")
+        qs = User.objects.all()
+        if query:
+            qs = qs.filter(username__icontains=query)[:15]
+
+        serializer = self.get_serializer(qs, many=True)
+
+        return Response(serializer.data)
+
+    def get_serializer(self, *args, **kwargs):
+
+        return self.serializer_class(*args, context={'request', self.request}, **kwargs)
+
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
 user_view = UserView.as_view()
+all_users_view = AllUsersView.as_view()
 forgot_password_view = ForgotPasswordView.as_view()
 change_password_view = ChangePasswordView.as_view()
+change_forgot_password_view = ChangeForgotPasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()

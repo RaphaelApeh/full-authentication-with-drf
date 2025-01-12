@@ -136,6 +136,7 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+PASSWORD_RESET_TIMEOUT = 3600
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -146,3 +147,6 @@ REST_FRAMEWORK = {
 # for development
 if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEFAULT_EMAIL_CONFIRMATION_URL = "/email-confirmation/"
+FORGOT_PASSWORD_URL = "/forgot/password/"

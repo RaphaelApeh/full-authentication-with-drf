@@ -1,0 +1,16 @@
+{% extends "./base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-max    px-5 py-5 mx-auto mt-20 rounded-2xl ">
+    <form id="form">
+        <h2 class="text-3xl mb-3 font-medium">Log Out?</h2>
+        
+        <p class="text-blue-900">Are you sure you want to log out.</p>
+        <div class="flex bg-black text-white w-80 justify-center  mb-5 hover:bg-gray-600 rounded-xl">
+            <button class="p-1  ">Log out</button>
+        </div>
+    </form>
+    <script src="{% static 'main.js' %}" data-csrf="{{ csrf_token }}" ></script>
+</div>
+{% endblock %}
