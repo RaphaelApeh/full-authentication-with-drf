@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 
 from rest_framework import serializers
 
@@ -31,15 +32,16 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["username", "email", "first_name", "last_name", "full_name"]
+        extra_kwargs = {
+            "username": {"required": False}
+        }
 
     def update(self, instance, validated_data):
 
         instance = super().update(instance, validated_data)
-
-        instance.username = validated_data.get("username", instance.username)
-        instance.email = validated_data.get("email", instance.email)
-        instance.first_name = validated_data.get("first_name", instance.first_name)
-        instance.last_name = validated_data.get("last_name", instance.last_name)
-        instance.save()
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
 
         return instance
