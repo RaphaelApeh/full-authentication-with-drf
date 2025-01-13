@@ -44,7 +44,7 @@ EMAIL_HOST_PASSWORD = "password"
 | POST         | `/api/login/`    | Login a user           |
 | POST     | `/api/confirm-email/{user_id}/{token}/`    | Confirm user email               |
 | POST         | `/api/logout/`      | Logout a user                  |
-| POST         | `/api/change-password/` | Change a user password send the current password and the new password               |
+| POST         | `/api/change-password/` | Change a user password by sending the current password and the new password               |
 | POST        | `/api/forgot-passsword/`      | User forgot password               |
 | POST     | `/api/new-password/{user_id}/{token}/`    | Change user forgot password               |
 
