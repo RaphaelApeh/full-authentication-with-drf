@@ -1,7 +1,7 @@
 ## Full authentication with rest framework 🎯
 
 ### Get Started🚀
-- Create vitural environment 👾
+- Create virtural environment 👾
 ```bash
 python -m venv .venv
 ```
