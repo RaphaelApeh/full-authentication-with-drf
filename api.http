@@ -44,3 +44,8 @@ Authorization: Token 178bd499cf3b5944184815b0bdef646794ecc900
     "first_name": "Instance_name",
     "last_name": "updated_name"
 }
+
+###
+GET http://127.0.0.1:8000/api/users/ HTTP/1.1
+
+Content-Type: application/json

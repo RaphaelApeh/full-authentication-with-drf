@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import authenticate
@@ -34,7 +33,7 @@ class RegistrationView(APIView):
         username = serializer.validated_data.get("username")
         user  = User.objects.filter(username=username).first()
         token = default_token_generator.make_token(user)
-        url = settings.DEFAULT_EMAIL_CONFIRMATION_URL or "/api/confirm-email/"
+        url = "/api/confirm-email/"
         link_to_confirm = request.build_absolute_uri(f"{url}{user.pk}/{token}/")
         user.email_user("Email Comfirmation", f"Dear {user.username}, Verify your email:{link_to_confirm}")
 
@@ -130,6 +129,7 @@ class ChangePasswordView(APIView):
 
 class UserView(APIView):
     authentication_classes = [TokenAuthentication]
+    serializer_class = UserSerializer
 
     def get(self, request, *args, **kwargs):
 
@@ -151,7 +151,7 @@ class UserView(APIView):
 
     def get_serializer(self, *args, **kwargs):
 
-        return UserSerializer(*args, context={'request': self.request}, **kwargs)
+        return self.serializer_class(*args, context={'request': self.request}, **kwargs)
 
 
 class ForgotPasswordView(APIView):
@@ -169,7 +169,7 @@ class ForgotPasswordView(APIView):
         if qs.exists():
             user = qs.get()
             token = default_token_generator.make_token(user)
-            url = settings.FORGOT_PASSWORD_URL or "/api/new-password/"
+            url = "/api/new-password/"
             host_url = request.build_absolute_uri(f"{url}{user.pk}/{token}/")
             user.email_user("Forgot Password ?", f"Dear {user.username}, Link to change password {host_url} ")
 
@@ -209,7 +209,6 @@ class ChangeForgotPasswordView(APIView):
 
 class AllUsersView(APIView):
 
-    permission_classes = [permissions.IsAdminUser]
     serializer_class = UserSerializer
 
     def get(self, request, *args, **kwargs):
