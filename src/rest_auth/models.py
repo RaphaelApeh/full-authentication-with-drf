@@ -15,10 +15,10 @@ class EmailConfirmation(models.Model):
 
 
     def save(self, *args, **kwargs):
-        if self.user is not None:
+        if user := self.user:
             if self.is_confirmed:
-                self.user.is_active = True
-                self.user.save()
+                user.is_active = True
+                user.save()
         super().save()
 
 

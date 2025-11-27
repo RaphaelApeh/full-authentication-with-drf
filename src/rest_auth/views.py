@@ -1,21 +1,21 @@
-from django.contrib.auth import get_user_model
+from django.urls import reverse
+from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth import authenticate
 from django.core.validators import validate_email
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import (ObjectDoesNotExist,
-                                    ValidationError)
+from django.core.exceptions import ValidationError
 
-from rest_framework import permissions
+from rest_framework import status
+from rest_framework import permissions, authentication
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.authentication import TokenAuthentication
-from rest_framework.authtoken.models import Token
 
 from .models import EmailConfirmation
-from .serializers import UserRegistrationSerializer, UserSerializer
+from .serializers import UserRegistrationSerializer, UserSerializer, LoginSerializer
+
 
 User = get_user_model()
+
 
 class RegistrationView(APIView):
 
@@ -25,10 +25,10 @@ class RegistrationView(APIView):
 
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
-            return Response({"Error": serializer.errors})
+            return Response({"Error": serializer.errors}, status.HTTP_401_UNAUTHORIZED)
         email = serializer.validated_data.get("email")
         if email is None:
-            return Response({'Error':"Invaild Email."})
+            return Response({'Error':"Invaild Email."}, status.HTTP_400_BAD_REQUEST)
         serializer.save()
         username = serializer.validated_data.get("username")
         user  = User.objects.filter(username=username).first()
@@ -38,7 +38,7 @@ class RegistrationView(APIView):
         user.email_user("Email Comfirmation", f"Dear {user.username}, Verify your email:{link_to_confirm}")
 
         
-        return Response({'message': "A verification email has been sent to you."})
+        return Response({'message': "A verification email has been sent to you."}, status.HTTP_201_CREATED)
         
 
     def get_serializer(self, *args, **kwargs):
@@ -47,39 +47,35 @@ class RegistrationView(APIView):
 
 class LoginView(APIView):
 
+    serializer_class = LoginSerializer
 
     def post(self, request, *args, **kwargs):
-        credentials = {
-            "username" : request.data.get("username"),
-            "password" : request.data.get("password")
-        }
-        try:
-            user = authenticate(request, **credentials)
-            if user is not None:
-                if user.is_active:
-                    token, _ = Token.objects.get_or_create(user=user)
-                
-                    return Response({"token": token.key})
-            return Response({"Error": "Invalid data."})
-        except Exception as e:
-            return Response({"Error": f"Invalid data {e}."})
+        serializer = self.get_serializer()
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status.HTTP_201_CREATED)
 
+    def get_serializer(self):
+        serializer = self.serializer_class
+        context = {"request": self.request}
+        return serializer(data=self.request.data, context=context)
 
 class LogoutView(APIView):
 
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = [
+        authentication.TokenAuthentication, 
+        authentication.SessionAuthentication
+    ]
+    permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, *args, **kwargs):
-        try:
-            request.auth.delete()
-            return Response({"message": "Logedout successfully"})
-        except:
-            return Response({"Error": "Invalid data."})
         
+        request.auth.delete()
+        logout(request)
+        return Response({"message": "Logedout successfully"})
+
 
 class EmailConfirmationView(APIView):
     
-
     def post(self, request, *args, **kwargs):
         
         user_id = kwargs["user_pk"]
@@ -92,14 +88,14 @@ class EmailConfirmationView(APIView):
                 _email.is_confirmed = True
                 _email.save()
                 return Response({"message": f"Email {_email.email} is confirmed."})
-        except:
+        except Exception:
 
             return Response({"Error": "User does not exists."})
 
 
 class ChangePasswordView(APIView):
 
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = [authentication.TokenAuthentication]
 
     def post(self, request, *args, **kwargs):
         
@@ -111,7 +107,7 @@ class ChangePasswordView(APIView):
             validate_password(new_password)
         except ValidationError as e:
     
-            return Response({"Error": f" ".join(e)})    
+            return Response({"Error": "\n".join(e)})    
 
         if new_password != confrim_password:
             return Response({"Error": "password not match."})
@@ -128,7 +124,7 @@ class ChangePasswordView(APIView):
 
 
 class UserView(APIView):
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = [authentication.TokenAuthentication]
     serializer_class = UserSerializer
 
     def get(self, request, *args, **kwargs):
@@ -169,8 +165,8 @@ class ForgotPasswordView(APIView):
         if qs.exists():
             user = qs.get()
             token = default_token_generator.make_token(user)
-            url = "/api/new-password/"
-            host_url = request.build_absolute_uri(f"{url}{user.pk}/{token}/")
+            url = reverse("change-forgot-password", args=(user.pk, token))
+            host_url = request.build_absolute_uri(f"{url}")
             user.email_user("Forgot Password ?", f"Dear {user.username}, Link to change password {host_url} ")
 
             return Response({"message": "Email sent."})

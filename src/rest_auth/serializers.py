@@ -1,9 +1,55 @@
-from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.contrib.auth import get_user_model, authenticate, \
+      login
+from django.contrib.auth.models import update_last_login
 
 from rest_framework import serializers
+from rest_framework.authtoken.models import Token
+
+from .exceptions import UserFieldNotSet
 
 User = get_user_model()
+
+
+class PasswordField(serializers.CharField):
+
+    def __init__(self, **kwargs):
+        style = kwargs.get("style", {})
+        style["input_type"] = "password"
+        kwargs["write_only"] = True
+        super().__init__(**kwargs)
+
+
+class LoginSerializer(serializers.Serializer):
+
+    password = PasswordField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[User.USERNAME_FIELD] = serializers.CharField()
+
+    def validate(self, attrs):
+        credentials = {}
+        _username = User.USERNAME_FIELD
+        username = attrs.get(_username)
+        password = attrs.pop("password")
+        if None in (username, password):
+            raise UserFieldNotSet()
+        credentials[_username] = username
+        credentials["password"] = password
+        request = self.context.get("request")
+        user = authenticate(request, **credentials)
+        if not user:
+            raise serializers.ValidationError("Invalid %s or password field." % _username)
+        login(request, user)
+        update_last_login(None, user)
+        token, _ = Token.objects.get_or_create(user=user)
+        attrs = {
+            "message": "Login successfully.",
+            "token": token.key
+        }
+        return super().validate(attrs)
+    
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
 
