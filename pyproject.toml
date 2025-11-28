@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "home.settings"
+python_files = ["src/tests/*.py", "src/tests/test_*.py"]
+pythonpath = "src"

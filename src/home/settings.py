@@ -134,11 +134,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 PASSWORD_RESET_TIMEOUT = 3600
 
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication"
-    ]
-}
+# REST_FRAMEWORK = {
+#     "DEFAULT_AUTHENTICATION_CLASSES": [
+#         "rest_framework.authentication.SessionAuthentication"
+#     ]
+# }
 
 # for development
 if DEBUG:

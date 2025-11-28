@@ -48,16 +48,17 @@ class RegistrationView(APIView):
 class LoginView(APIView):
 
     serializer_class = LoginSerializer
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer()
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status.HTTP_201_CREATED)
 
-    def get_serializer(self):
+    def get_serializer(self, *args, **kwargs):
         serializer = self.serializer_class
         context = {"request": self.request}
-        return serializer(data=self.request.data, context=context)
+        return serializer(*args, context=context, **kwargs)
 
 class LogoutView(APIView):
 

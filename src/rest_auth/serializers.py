@@ -14,7 +14,7 @@ User = get_user_model()
 class PasswordField(serializers.CharField):
 
     def __init__(self, **kwargs):
-        style = kwargs.get("style", {})
+        style = kwargs.setdefault("style", {})
         style["input_type"] = "password"
         kwargs["write_only"] = True
         super().__init__(**kwargs)
@@ -31,10 +31,8 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         credentials = {}
         _username = User.USERNAME_FIELD
-        username = attrs.get(_username)
+        username = attrs.pop(_username)
         password = attrs.pop("password")
-        if None in (username, password):
-            raise UserFieldNotSet()
         credentials[_username] = username
         credentials["password"] = password
         request = self.context.get("request")
