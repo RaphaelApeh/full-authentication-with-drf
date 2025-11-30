@@ -64,7 +64,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         credentials["username"] = username
         password = attrs.get("password")
         password2 = attrs.get("password2")
-        if password and password2 and password == password2:
+        if not password and not password2 or password != password2:
             raise serializers.ValidationError("Password not Match.")
         credentials["email"] = email
         for key, value in credentials.items():
@@ -75,12 +75,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             "email": email,
             "message": "Account veritication code sent."
         }
+    
+    def save(self, **kwargs):
+        if (instance := self.instance) is None:
+            self.instance = self.create(self.data)
+        else:
+            self.instance = self.update(instance, self.data)
+        return self.instance
 
     def create(self, validated_data):
-        password = validated_data.pop("password")
-        validated_data.pop("password2")
+        password = validated_data.get("password")
         request = self.context.get("request")
-        user = User.objects.create_user(password=password, **validated_data)
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
         token = default_token_generator.make_token(user)
         url = reverse("change-forgot-password", args=(user.pk, token))
         link_to_confirm = request.build_absolute_uri(f"{url}")

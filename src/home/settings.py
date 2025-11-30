@@ -137,9 +137,13 @@ PASSWORD_RESET_TIMEOUT = 3600
 # REST_FRAMEWORK = {
 #     "DEFAULT_AUTHENTICATION_CLASSES": [
 #         "rest_framework.authentication.SessionAuthentication"
-#     ]
+#     ]s
 # }
 
-# for development
-if DEBUG:
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+#  Email Config
+
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_USER = config("EMAIL_USER", default="")
+EMAIL_USER_PASSWORD = config("EMAIL_USER_PASSWORD", default="")
+EMAIL_HOST = config("EMAIL_HOST", default=None)
