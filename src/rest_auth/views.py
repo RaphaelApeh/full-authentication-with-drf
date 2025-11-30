@@ -24,21 +24,9 @@ class RegistrationView(APIView):
     def post(self, request, *args, **kwargs):
 
         serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            return Response({"Error": serializer.errors}, status.HTTP_401_UNAUTHORIZED)
-        email = serializer.validated_data.get("email")
-        if email is None:
-            return Response({'Error':"Invaild Email."}, status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
         serializer.save()
-        username = serializer.validated_data.get("username")
-        user  = User.objects.filter(username=username).first()
-        token = default_token_generator.make_token(user)
-        url = "/api/confirm-email/"
-        link_to_confirm = request.build_absolute_uri(f"{url}{user.pk}/{token}/")
-        user.email_user("Email Comfirmation", f"Dear {user.username}, Verify your email:{link_to_confirm}")
-
-        
-        return Response({'message': "A verification email has been sent to you."}, status.HTTP_201_CREATED)
+        return Response(serializer.validated_data)
         
 
     def get_serializer(self, *args, **kwargs):

@@ -1,12 +1,13 @@
 from django.db import transaction
+from django.urls import reverse
 from django.contrib.auth import get_user_model, authenticate, \
       login
 from django.contrib.auth.models import update_last_login
+from django.contrib.auth.tokens import default_token_generator
 
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 
-from .exceptions import UserFieldNotSet
 
 User = get_user_model()
 
@@ -51,22 +52,40 @@ class LoginSerializer(serializers.Serializer):
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
 
-    password2 = serializers.CharField(style={'input_type':'password'})
+    password2 = PasswordField()
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password2']
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['password2']:
+        credentials = {}
+        username = attrs.pop("username")
+        email = attrs.pop("email")
+        credentials["username"] = username
+        password = attrs.get("password")
+        password2 = attrs.get("password2")
+        if password and password2 and password == password2:
             raise serializers.ValidationError("Password not Match.")
-        if User.objects.filter(email__iexact=attrs['email']).exists():
-            raise serializers.ValidationError("Email already exists.")
-        return super().validate(attrs)
+        credentials["email"] = email
+        for key, value in credentials.items():
+            if User.objects.filter(**{f"{key}__iexact": value}).exists():
+                raise serializers.ValidationError(f"{key.upper()} already exists.")
+        
+        return {
+            "email": email,
+            "message": "Account veritication code sent."
+        }
 
     def create(self, validated_data):
         password = validated_data.pop("password")
         validated_data.pop("password2")
-        return User.objects.create_user(password=password, **validated_data)
+        request = self.context.get("request")
+        user = User.objects.create_user(password=password, **validated_data)
+        token = default_token_generator.make_token(user)
+        url = reverse("change-forgot-password", args=(user.pk, token))
+        link_to_confirm = request.build_absolute_uri(f"{url}")
+        user.email_user("Account Veritication", f"Dear {user.username}, Verify your email:\n{link_to_confirm}")
+        return user
 
     
 class UserSerializer(serializers.ModelSerializer):
