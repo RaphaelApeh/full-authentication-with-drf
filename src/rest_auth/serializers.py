@@ -95,7 +95,31 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.email_user("Account Veritication", f"Dear {user.username}, Verify your email:\n{link_to_confirm}")
         return user
 
-    
+
+class ChangePassword(serializers.Serializer):
+
+    old_password = PasswordField()
+    new_password = PasswordField()
+    comfirm_password = PasswordField()
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = request.user
+        old_password = attrs.get("old_password")
+        new_password = attrs.get("new_password")
+        comfirm_password = attrs.get("comfirm_password")
+        if not new_password or not comfirm_password and new_password != comfirm_password:
+            raise serializers.ValidationError("Password not Match.")
+        if user.check_password(old_password):
+            user.set_password(new_password)
+            user.save()
+        else:
+            raise serializers.ValidationError("Invalid password.")
+        return {
+            "message": "Password change successfully."
+        }
+
+
 class UserSerializer(serializers.ModelSerializer):
 
     full_name = serializers.CharField(source="get_full_name", read_only=True)
