@@ -10,11 +10,11 @@ from rest_framework.decorators import action
 from rest_framework import permissions, authentication
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
-from .models import EmailConfirmation
 from .serializers import UserRegistrationSerializer, UserSerializer, LoginSerializer, \
-    ChangePasswordSerializer
+    ChangePasswordSerializer, EmailComfirmationSerializer
 
 
 User = get_user_model()
@@ -66,22 +66,18 @@ class LogoutView(APIView):
 
 
 class EmailConfirmationView(APIView):
-    
+
+    serializer_class = EmailComfirmationSerializer
+
     def post(self, request, *args, **kwargs):
-        
-        user_id = kwargs["user_pk"]
-        token = kwargs["token"]
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data)
+    
 
-        try:
-            user = User.objects.get(pk=user_id)
-            if default_token_generator.check_token(user, token):
-                _email = EmailConfirmation.objects.get(user=user)
-                _email.is_confirmed = True
-                _email.save()
-                return Response({"message": f"Email {_email.email} is confirmed."})
-        except Exception:
-
-            return Response({"Error": "User does not exists."})
+    def get_serializer(self, *args, **kwargs):
+        context = {"request": self.request}
+        return self.serializer_class(*args, context=context, **kwargs)
 
 
 class UserViewSet(ModelViewSet):
@@ -90,7 +86,9 @@ class UserViewSet(ModelViewSet):
         authentication.SessionAuthentication,
     ]
     serializer_class = UserSerializer
-    queryset = User.objects.select_related()
+    queryset = User.objects.select_related().order_by("-date_joined", "-last_login")
+    pagination_class = PageNumberPagination
+
 
     def get_serializer_class(self):
         match self.action:
@@ -99,26 +97,40 @@ class UserViewSet(ModelViewSet):
         return super().get_serializer_class()
 
 
-    @action(detail=False)
+    @action(
+            detail=False, 
+            methods=["post"],
+            permission_classes=[permissions.IsAuthenticated]
+            )
     def change_password(self, request, *args, **kwargs):
+        """
+        Change current user password.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
-    @action(detail=False)
+    @action(
+            detail=False, 
+            permission_classes=[permissions.IsAuthenticated]
+        )
     def me(self, request, *args, **kwargs):
         """
         Current authenticated user.
         """
-        serializer = self.get_serializer(self.get_object())
+        serializer = self.get_serializer(request.user)
         return Response(serializer.data, status.HTTP_200_OK)
+
 
     def get_permissions(self):
         match self.action:
-            case "me":
-                self.permission_classes = permissions.IsAuthenticated
+            case "list":
+                self.permission_classes = [
+                    permissions.IsAdminUser
+                ]
         return super().get_permissions()
+
 
 
 class ForgotPasswordView(APIView):

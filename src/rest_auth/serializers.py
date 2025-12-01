@@ -6,9 +6,10 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
-
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
+
+from .models import EmailConfirmation
 
 
 User = get_user_model()
@@ -110,7 +111,7 @@ class ChangePasswordSerializer(serializers.Serializer):
         old_password = attrs.get("old_password")
         new_password = attrs.get("new_password")
         comfirm_password = attrs.get("comfirm_password")
-        if not new_password or not comfirm_password and new_password != comfirm_password:
+        if new_password or comfirm_password and new_password != comfirm_password:
             raise serializers.ValidationError("Password not Match.")
         try:
             validate_password(new_password)
@@ -132,7 +133,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["username", "email", "first_name", "last_name", "full_name"]
+        fields = ["id", "username", "email", "full_name", "is_active"]
         extra_kwargs = {
             "username": {"required": False}
         }
@@ -146,3 +147,32 @@ class UserSerializer(serializers.ModelSerializer):
             instance.save()
 
         return instance
+
+
+class EmailComfirmationSerializer(serializers.Serializer):
+
+    token = serializers.CharField(write_only=True)
+    user_pk = serializers.CharField()
+
+
+    def validate(self, attr):
+        user_pk = attr["user_pk"]
+        token = attr["token"]
+        try:
+            pk = User._meta.pk.to_python(user_pk)
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User Id is invalid.")
+        if not self.check_token(user, token):
+            raise serializers.ValidationError("Invalid token.")
+        _email = EmailConfirmation.objects.get(user=user)
+        _email.is_confirmed = True
+        _email.save()
+        return {
+            "message": "Email verified"
+        }
+    
+    def check_token(self, user, token: str) -> bool:
+
+        return default_token_generator.check_token(user, token)
+
