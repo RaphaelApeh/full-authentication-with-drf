@@ -2,8 +2,10 @@ from django.db import transaction
 from django.urls import reverse
 from django.contrib.auth import get_user_model, authenticate, \
       login
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError
 
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
@@ -96,7 +98,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
-class ChangePassword(serializers.Serializer):
+class ChangePasswordSerializer(serializers.Serializer):
 
     old_password = PasswordField()
     new_password = PasswordField()
@@ -110,6 +112,10 @@ class ChangePassword(serializers.Serializer):
         comfirm_password = attrs.get("comfirm_password")
         if not new_password or not comfirm_password and new_password != comfirm_password:
             raise serializers.ValidationError("Password not Match.")
+        try:
+            validate_password(new_password)
+        except ValidationError as e:
+            raise serializers.ValidationError("\n".join(e.messages))
         if user.check_password(old_password):
             user.set_password(new_password)
             user.save()

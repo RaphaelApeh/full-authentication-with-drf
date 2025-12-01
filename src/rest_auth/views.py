@@ -6,12 +6,15 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework import permissions, authentication
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 
 from .models import EmailConfirmation
-from .serializers import UserRegistrationSerializer, UserSerializer, LoginSerializer
+from .serializers import UserRegistrationSerializer, UserSerializer, LoginSerializer, \
+    ChangePasswordSerializer
 
 
 User = get_user_model()
@@ -81,61 +84,41 @@ class EmailConfirmationView(APIView):
             return Response({"Error": "User does not exists."})
 
 
-class ChangePasswordView(APIView):
-
-    authentication_classes = [authentication.TokenAuthentication]
-
-    def post(self, request, *args, **kwargs):
-        
-        old_password = request.data.get("old_password")
-        new_password = request.data.get("new_password")
-        confrim_password = request.data.get("confrim_password")
-        
-        try:
-            validate_password(new_password)
-        except ValidationError as e:
-    
-            return Response({"Error": "\n".join(e)})    
-
-        if new_password != confrim_password:
-            return Response({"Error": "password not match."})
-
-        if not all([old_password, new_password]):
-            return Response({"Error": "An error occurred."})
-        
-        user = request.user
-        if user.check_password(old_password):
-            user.set_password(new_password)
-            user.save()
-            return Response({"message": "Password set successfully."})
-        return Response({"Error": "Something went wrong."})
-
-
-class UserView(APIView):
-    authentication_classes = [authentication.TokenAuthentication]
+class UserViewSet(ModelViewSet):
+    authentication_classes = [
+        authentication.TokenAuthentication,
+        authentication.SessionAuthentication,
+    ]
     serializer_class = UserSerializer
+    queryset = User.objects.select_related()
 
-    def get(self, request, *args, **kwargs):
+    def get_serializer_class(self):
+        match self.action:
+            case "change_password":
+                self.serializer_class = ChangePasswordSerializer
+        return super().get_serializer_class()
 
-        user = request.user
-        serializer = self.get_serializer(user, many=False)
 
-        return Response(serializer.data)
-
-
-    def post(self, request, *args, **kwargs):
-        """
-        update user credentials
-        """
-        serializer = self.get_serializer(request.user, data=request.data, partial=True)
+    @action(detail=False)
+    def change_password(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
-    def get_serializer(self, *args, **kwargs):
+    @action(detail=False)
+    def me(self, request, *args, **kwargs):
+        """
+        Current authenticated user.
+        """
+        serializer = self.get_serializer(self.get_object())
+        return Response(serializer.data, status.HTTP_200_OK)
 
-        return self.serializer_class(*args, context={'request': self.request}, **kwargs)
+    def get_permissions(self):
+        match self.action:
+            case "me":
+                self.permission_classes = permissions.IsAuthenticated
+        return super().get_permissions()
 
 
 class ForgotPasswordView(APIView):
@@ -191,32 +174,10 @@ class ChangeForgotPasswordView(APIView):
         return Response({"error": "Something went wrong."})
 
 
-class AllUsersView(APIView):
-
-    serializer_class = UserSerializer
-
-    def get(self, request, *args, **kwargs):
-
-        query = request.query_params.get("q")
-        qs = User.objects.all()
-        if query:
-            qs = qs.filter(username__icontains=query)[:15]
-
-        serializer = self.get_serializer(qs, many=True)
-
-        return Response(serializer.data)
-
-    def get_serializer(self, *args, **kwargs):
-
-        return self.serializer_class(*args, context={'request', self.request}, **kwargs)
-
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
-user_view = UserView.as_view()
-all_users_view = AllUsersView.as_view()
 forgot_password_view = ForgotPasswordView.as_view()
-change_password_view = ChangePasswordView.as_view()
 change_forgot_password_view = ChangeForgotPasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()
