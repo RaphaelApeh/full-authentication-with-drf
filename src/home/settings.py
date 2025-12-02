@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
     # Internals
     "rest_auth",
+    "social_account",
 ]
 
 MIDDLEWARE = [
@@ -134,10 +135,26 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 PASSWORD_RESET_TIMEOUT = 3600
 
+SOCIAL_PROVIDER = {
+    "github": {
+        "AUTH_URL": "https://github.com/login/oauth/authorize",
+        "TOKEN_URL": "https://github.com/login/oauth/access_token",
+        "USER_INFO_URL": "https://github.com/user",
+        "SCOPES": ["read:org", "profile"]
+    },
+    "google": {
+        "AUTH_URL": "https://account.com/o/aouth2/v2/auth",
+        "TOKEN_URL": "https://oauth2.googleapis.com/token",
+        "USER_INFO_URL": "https://www.googleapis.com/oauth2/v2/userinfo",
+        "SCOPE": ["email", "profile", "openid"]
+    }
+}
+
 REST_FRAMEWORK = {
     # "DEFAULT_AUTHENTICATION_CLASSES": [
     #     "rest_framework.authentication.SessionAuthentication"
     # ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10
 }
 
