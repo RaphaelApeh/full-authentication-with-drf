@@ -34,8 +34,8 @@ class Command(BaseCommand):
         provider_setting = settings.SOCIAL_PROVIDER[provider_name]
         client_id = provider_setting.get("CLIENT_ID", None)
         secret_key = provider_setting.get("SECRET_KEY", None)
-
-        while not options["no_input"]:
+        count = 0
+        while not options["no_input"] and count < 3:
             client_id = getpass("Client ID: ")
             secret_key = getpass("Secret Key: ")
             if (client_id is None or client_id == "") or \
@@ -43,15 +43,14 @@ class Command(BaseCommand):
                 self.stderr.write(
                     self.style.ERROR("Client ID or Secret Key is not provided")
                 )
+                count += 1
                 continue
             elif client_id and secret_key:
                 break
-        if (client_id is None or client_id == "") or (secret_key is None or secret_key == ""): 
-            msg = (
-                f"SOCIAL_PROVIDER['{provider_name}']['CLIENT_ID']\n"
-                f"SOCIAL_PROVIDER['{provider_name}']['SECRET_KEY']"
-            )
-            self.stderr.write(self.style.WARNING(msg))
+        if not client_id or not secret_key:
+            if count == 3:
+                msg = "Max count reached."
+                self.stderr.write(self.style.WARNING(msg))
             raise CommandError(self.style.ERROR("Client ID or Secret Key is not provided"))
         else:
             provider_data["client_id"] = client_id
