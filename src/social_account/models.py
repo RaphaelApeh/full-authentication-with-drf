@@ -1,8 +1,28 @@
 import secrets
 
+import oauthlib
+import oauthlib.oauth2
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+
+
+
+class SocialProviderManager(models.Manager):
+
+    def initalize_login(self, request, provider_name):
+
+        provider = self.get(provider=provider_name)
+        client = oauthlib.oauth2.WebApplicationClient(provider.client_id)
+        # Set the oauth state
+        provider.set_session_state(request)
+        url = client.prepare_request_uri(
+            provider.authorization_url,
+            scope=provider.scope,
+            state=request.session["state"]
+        )
+        return url
+
 
 
 class SocialProvider(models.Model):
@@ -19,6 +39,8 @@ class SocialProvider(models.Model):
                 name="social_provider_unique"
             )
         ]
+    
+    objects = SocialProviderManager()
 
     @property
     def scope(self):
