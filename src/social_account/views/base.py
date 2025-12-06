@@ -97,8 +97,9 @@ class BaseOauthCallbackAPIView(
                 user._meta.get_field(name)
                 setattr(user, name, attrs[name])
             except FieldDoesNotExist:
-                pass
+                continue
         user.save()
+        request.session["profile_data"] = attrs
         social_account = SocialAccount.objects.create(
             user=user,
             provider=self.provider_name,
@@ -125,5 +126,5 @@ class BaseOauthCallbackAPIView(
 
     
     def get_redirect_url(self, request):
-        url = reverse("%s_callback" % self.provider_name)
-        return url
+        view_url = reverse("%s_callback" % self.provider_name)
+        return request.build_absolute_uri(view_url)
