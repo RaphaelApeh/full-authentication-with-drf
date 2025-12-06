@@ -4,21 +4,56 @@ from django.urls import reverse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model, login as auth_login
-from django.core.exceptions import ImproperlyConfigured, FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist
 
-from social_account.serializers import OauthCallbackSerialzier
-from social_account.models import SocialProvider, SocialAccount
+from social_account.serializers import (
+    OauthCallbackSerialzier,
+    OauthLoginSerializer
+)
+from social_account.models import SocialAccount
+from social_account.mixins import (
+    OauthProviderMixin,
+    OauthClientMixin
+)
 
 
 User = get_user_model()
 
 
-class BaseOauthCallbackAPIView(APIView):
+class OauthLoginAPIView(OauthProviderMixin, APIView):
+
+    serializer_class = OauthLoginSerializer
+
+    def get(self, request, *args, **kwargs):
+
+        serializer = self.get_serializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        provider = self.get_provider(serializer.validated_data["provider"])
+        client = oauthlib.oauth2.WebApplicationClient(provider.client_id)
+        provider.set_session_state(request)
+        url = client.prepare_request_uri(
+            provider.authorization_url,
+            scope=provider.scope,
+            state=request.session["state"]
+        )
+        return Response(
+            {"authentication_url": url}
+        )
+
+    def get_serializer(self, *args, **kwargs):
+        context = {"request": self.request, "view": self}
+        return self.serializer_class(*args, context=context, **kwargs)
+
+
+class BaseOauthCallbackAPIView(
+    OauthProviderMixin, 
+    OauthClientMixin,
+    APIView
+    ):
     """
     Base Oauth callback api view.
     """
 
-    provider_name = None
     token_url = None
     userinfo_url = None
     header_type = "Bearer"
@@ -88,41 +123,7 @@ class BaseOauthCallbackAPIView(APIView):
         user = useraccount.user
         auth_login(user)
 
-        
-    
-    def _authenticate_client(self, request, code, client, provider):
-
-        token_body = client.prepare_request_body(
-            code=code,
-            redirect_uri=self.get_redirect_url(request),
-            client_id=provider.client_id,
-            client_secret=provider.secret_key
-        )
-        
-        print("\n", token_body)
-        response = requests.post(self.token_url, data=token_body)
-        response.raise_for_status()
-        client.parse_request_body_response(response.text)
-
-
-    def get_client(self):
-        if hasattr(self, "_client") and self._client:
-            return self._client
-        obj = self.get_provider()
-        self._client = client = oauthlib.oauth2.WebApplicationClient(obj.client_id)
-        return client
     
     def get_redirect_url(self, request):
         url = reverse("%s_callback" % self.provider_name)
         return url
-
-    def get_provider(self):
-        if hasattr(self, "_provider") and self._provider:
-            return self._provider
-        if not (provider := self.provider_name):
-            raise ImproperlyConfigured(
-                f"{type(self).__name__}.provider_name must be set."
-            )
-        obj = SocialProvider.objects.get(provider=provider)
-        self._provider = obj
-        return obj
