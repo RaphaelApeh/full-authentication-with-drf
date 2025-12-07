@@ -11,15 +11,21 @@ class Command(BaseCommand):
 
     help = "Creates oauth provider"
 
-
     def add_arguments(self, parser):
         parser.add_argument(
-            "provider", 
-            help="Name of oauth provider",
+            "provider",
+            metavar="Oauth2 Provider",
+            nargs="?",
+            help="Name of oauth2s provider",
             )
         parser.add_argument(
             "--no-input",
             "--noinput",
+            action="store_true"
+        )
+        parser.add_argument(
+            "--dry-run",
+            "--dryrun",
             action="store_true"
         )
         
@@ -28,21 +34,21 @@ class Command(BaseCommand):
         provider_data = dict()
         provider_name = options["provider"]
         if provider_name not in settings.SOCIAL_PROVIDER:
-            raise CommandError(self.style.ERROR("Invalid provider %s" % provider_name))
+            self.stderr.write(
+                self.style.WARNING("No extra configuration in provider settings.")
+            )
         if SocialProvider.objects.filter(provider=provider_name).exists():
             raise CommandError(self.style.WARNING("Provider already exists."))
-        provider_setting = settings.SOCIAL_PROVIDER[provider_name]
-        client_id = provider_setting.get("CLIENT_ID", None)
-        secret_key = provider_setting.get("SECRET_KEY", None)
+        provider_setting = settings.SOCIAL_PROVIDER.get(provider_name, {})
+        client_id = provider_setting.get("CLIENT_ID", "")
+        secret_key = provider_setting.get("SECRET_KEY", "")
         count = 0
         while not options["no_input"] and count < 3:
             client_id = getpass("Client ID: ")
             secret_key = getpass("Secret Key: ")
-            if (client_id is None or client_id == "") or \
-                (secret_key is None or secret_key == ""):
-                self.stderr.write(
-                    self.style.ERROR("Client ID or Secret Key is not provided")
-                )
+            if not client_id and not secret_key:
+                
+                self.print_error("Client ID or Secret Key is not provided")
                 count += 1
                 continue
             elif client_id and secret_key:
@@ -58,12 +64,20 @@ class Command(BaseCommand):
         
         if all(provider_data[d] for d in provider_data):
             provider = SocialProvider(
-                provider=provider_name, 
+                provider=provider_name,
                 **provider_data
             )
-            provider.save()
-            
-            return self.stderr.write(self.style.SUCCESS("Provider Saved."))
+            if not options["dry_run"]:
+                provider.save()            
+                return self.stderr.write(self.style.SUCCESS("Provider Saved."))
+            else:
+                self.stderr.write(
+                    self.style.WARNING(
+                        "%s provider was not saved."
+                        "\nDry run was added as a parameter." % provider.provider
+                    )
+                )
+                return
         raise CommandError("Error: something went wrong.")
 
     def print_error(self, text):
