@@ -22,6 +22,7 @@ User = get_user_model()
 
 class OauthLoginAPIView(OauthProviderMixin, APIView):
 
+    authentication_url = None
     serializer_class = OauthLoginSerializer
 
     def get(self, request, *args, **kwargs):
@@ -32,7 +33,7 @@ class OauthLoginAPIView(OauthProviderMixin, APIView):
         client = oauthlib.oauth2.WebApplicationClient(provider.client_id)
         provider.set_session_state(request)
         url = client.prepare_request_uri(
-            provider.authorization_url,
+            self.authorization_url,
             scope=provider.scope,
             state=request.session["state"]
         )
@@ -85,9 +86,11 @@ class BaseOauthCallbackAPIView(
 
     def create_user_social(self, request, attrs):
         assert isinstance(attrs, dict)
-        username = attrs["username"]
+        user_dict = attrs.copy()
+        username = user_dict["username"]
         user, _ = User.objects.get_or_create(username=username)
-        password = attrs.get("password")
+        profile_url = user_dict.pop("profile_url", "")
+        password = user_dict.get("password")
         if password:
             user.set_password(password)
         else:
@@ -95,7 +98,7 @@ class BaseOauthCallbackAPIView(
         for name in attrs:
             try:
                 user._meta.get_field(name)
-                setattr(user, name, attrs[name])
+                setattr(user, name, user_dict.pop(name))
             except FieldDoesNotExist:
                 continue
         user.save()
@@ -103,6 +106,7 @@ class BaseOauthCallbackAPIView(
         social_account = SocialAccount.objects.create(
             user=user,
             provider=self.provider_name,
+            profile_url=profile_url,
             profile_data=attrs
         )
         return social_account

@@ -72,6 +72,7 @@ class SocialAccount(models.Model):
     )
     provider = models.CharField(max_length=100)
     timestamp = models.DateTimeField(auto_now_add=True)
+    profile_url = models.URLField(default="")
     profile_data = models.JSONField()
 
 
