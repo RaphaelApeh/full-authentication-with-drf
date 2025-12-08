@@ -1,8 +1,10 @@
 import requests
 import oauthlib.oauth2
 from django.urls import reverse
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import HttpResponseRedirect
 from django.contrib.auth import get_user_model, login as auth_login
 from django.core.exceptions import FieldDoesNotExist
 
@@ -82,7 +84,7 @@ class BaseOauthCallbackAPIView(
 
         social_user = self.create_user_social(request, attr)
         self.login(request, social_user)
-        return Response(serializer.validated_data, status=200)
+        return HttpResponseRedirect(settings.REDIRECT_CALLBACK_URL)
 
     def create_user_social(self, request, attrs):
         assert isinstance(attrs, dict)

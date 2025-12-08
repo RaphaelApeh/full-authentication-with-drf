@@ -1,3 +1,13 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import SocialProvider, SocialAccount
+
+
+@admin.register(SocialProvider)
+class SocialProviderAdmin(admin.ModelAdmin):
+    search_fields = "provider"
+
+
+@admin.register(SocialAccount)
+class SocialAccountAdmin(admin.ModelAdmin):
+    ...
