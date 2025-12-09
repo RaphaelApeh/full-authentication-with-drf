@@ -159,7 +159,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 10
 }
 
-
+EMAIL_COMFIRMATION_EXPIRATION = 5
 #  Email Config
 
 EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

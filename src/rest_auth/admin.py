@@ -4,4 +4,4 @@ from .models import EmailConfirmation
 
 @admin.register(EmailConfirmation)
 class EmailAdmin(admin.ModelAdmin):
-    list_display = ['user', 'is_confirmed', 'timestamp']
+    list_display = ['user', 'is_confirmed', 'sent_at']

@@ -5,7 +5,7 @@ from .models import SocialProvider, SocialAccount
 
 @admin.register(SocialProvider)
 class SocialProviderAdmin(admin.ModelAdmin):
-    search_fields = "provider"
+    search_fields = ("provider",)
 
 
 @admin.register(SocialAccount)
