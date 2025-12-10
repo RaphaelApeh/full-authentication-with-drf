@@ -1,10 +1,9 @@
-import requests
-import oauthlib.oauth2
-from django.urls import reverse
 from django.conf import settings
+from django.urls import reverse
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.http import HttpResponseRedirect
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model, login as auth_login
 from django.core.exceptions import FieldDoesNotExist
 
@@ -13,16 +12,13 @@ from social_account.serializers import (
     OauthLoginSerializer
 )
 from social_account.models import SocialAccount
-from social_account.mixins import (
-    OauthProviderMixin,
-    OauthClientMixin
-)
+from social_account.mixins import OauthClientMixin
 
 
 User = get_user_model()
 
 
-class OauthLoginAPIView(OauthProviderMixin, APIView):
+class OauthLoginAPIView(OauthClientMixin, APIView):
 
     authentication_url = None
     serializer_class = OauthLoginSerializer
@@ -31,8 +27,9 @@ class OauthLoginAPIView(OauthProviderMixin, APIView):
 
         serializer = self.get_serializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-        provider = self.get_provider(serializer.validated_data["provider"])
-        client = oauthlib.oauth2.WebApplicationClient(provider.client_id)
+        
+        client = self.get_client(serializer.validated_data["provider"])
+        provider = self._provider #noqa
         provider.set_session_state(request)
         url = client.prepare_request_uri(
             self.authorization_url,
@@ -48,8 +45,7 @@ class OauthLoginAPIView(OauthProviderMixin, APIView):
         return self.serializer_class(*args, context=context, **kwargs)
 
 
-class BaseOauthCallbackAPIView(
-    OauthProviderMixin, 
+class BaseOauthCallbackAPIView( 
     OauthClientMixin,
     APIView
     ):
@@ -59,8 +55,10 @@ class BaseOauthCallbackAPIView(
 
     token_url = None
     userinfo_url = None
+    redirect_url = None
     header_type = "Bearer"
     serializer_class = OauthCallbackSerialzier
+    authentication_classes = []
 
     def get_serializer(self, request, *args, **kwargs):
         context = {"request": request, "view": self}
@@ -80,45 +78,56 @@ class BaseOauthCallbackAPIView(
             provider=provider,
             code=query_dict["code"]
         )
-        attr = self._fetch_userinfo(request, client)
+        user_dict = self._fetch_userinfo(request, client)
 
-        social_user = self.create_user_social(request, attr)
-        self.login(request, social_user)
-        return HttpResponseRedirect(settings.REDIRECT_CALLBACK_URL)
+        social = self.create_user_social(request, client, user_dict)
+        
+        token = self.complete_login(request, social)
+        return Response({
+            "user_id": social.user_id,
+            "social_id": social.pk,
+            "provider": self.provider_name,
+            "access_token": token.access_token,
+            "refresh_token": str(token)
+        }, status=status.HTTP_201_CREATED)
+    
+    def complete_login(self, request, social):
+        self.login(request, social)
 
-    def create_user_social(self, request, attrs):
-        assert isinstance(attrs, dict)
-        user_dict = attrs.copy()
+        token = RefreshToken.for_user(social.user)
+        return token
+
+    def create_user_social(self, request, client, user_dict):
+        assert isinstance(user_dict, dict)
         username = user_dict["username"]
         user, _ = User.objects.get_or_create(username=username)
         profile_url = user_dict.pop("profile_url", "")
-        password = user_dict.get("password")
-        if password:
-            user.set_password(password)
-        else:
-            user.set_unusable_password()
-        for name in attrs:
+        user.set_unusable_password()
+        for name in user_dict:
             try:
                 user._meta.get_field(name)
                 setattr(user, name, user_dict.pop(name))
             except FieldDoesNotExist:
                 continue
         user.save()
-        request.session["profile_data"] = attrs
         social_account = SocialAccount.objects.create(
             user=user,
             provider=self.provider_name,
+            access_token=client.access_token,
+            refresh_token=client.refresh_token,
             profile_url=profile_url,
-            profile_data=attrs
+            profile_data=request.session["profile_data"]
         )
         return social_account
 
 
     def _fetch_userinfo(self, request, client):
         headers = self._get_header(client.token["access_token"])
-        response = requests.get(self.userinfo_url, headers=headers)
+        response = self.get_response(self.userinfo_url, headers=headers)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        request.session["profile_data"] = data
+        return data
     
 
     def _get_header(self, token):
@@ -130,7 +139,12 @@ class BaseOauthCallbackAPIView(
         user = useraccount.user
         auth_login(user)
 
+    @property
+    def setting(self):
+        getattr(settings, "SOCIAL_PROVIDER", {}).get(self.provider_name, {})
     
     def get_redirect_url(self, request):
+        if redirect_url := (self.settings.get("REDIRECT_URL") or self.redirect_url or settings.DEFAULT_CALLBACK_URL):
+            return redirect_url
         view_url = reverse("%s_callback" % self.provider_name)
         return request.build_absolute_uri(view_url)

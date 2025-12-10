@@ -70,6 +70,8 @@ class SocialAccount(models.Model):
         related_name="social_accounts",
         on_delete=models.CASCADE
     )
+    access_token = models.CharField(max_length=200, default="")
+    refresh_token = models.CharField(max_length=200, default="")
     provider = models.CharField(max_length=100)
     timestamp = models.DateTimeField(auto_now_add=True)
     profile_url = models.URLField(default="")

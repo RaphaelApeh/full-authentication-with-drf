@@ -136,6 +136,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 PASSWORD_RESET_TIMEOUT = 3600
 
+DEFAULT_CALLBACK_URL = config("OAUTH_CALLBACK_URL")
+
 SOCIAL_PROVIDER = {
     "github": {
         "AUTH_URL": "https://github.com/login/oauth/authorize",

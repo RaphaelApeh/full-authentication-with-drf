@@ -22,13 +22,13 @@ class OauthProviderMixin:
         return obj
     
 
-class OauthClientMixin:
+class OauthClientMixin(OauthProviderMixin):
 
     
-    def get_client(self):
+    def get_client(self, provider_name=None):
         if hasattr(self, "_client") and self._client:
             return self._client
-        obj = self.get_provider()
+        obj = self.get_provider(provider_name)
         self._client = client = oauthlib.oauth2.WebApplicationClient(obj.client_id)
         return client
         
@@ -42,6 +42,12 @@ class OauthClientMixin:
         )
         
         print("\n", token_body)
-        response = requests.post(self.token_url, data=token_body)
+        response = self.get_response(self.token_url, method="post",data=token_body)
         response.raise_for_status()
         client.parse_request_body_response(response.text)
+
+
+    def get_response(self, url, method="GET", **kwargs):
+        return (
+            getattr(requests, method.lower())(url, **kwargs)
+            )
