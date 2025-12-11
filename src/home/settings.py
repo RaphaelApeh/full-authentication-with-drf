@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework.authtoken",
+    "corsheaders",
 
     # Internals
     "rest_auth",
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -79,6 +81,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "home.wsgi.application"
+
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5174"
+    ]
+
+CORS_URLS_REGEX = r"^/api/.*$"
 
 
 # Database
