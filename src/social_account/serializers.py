@@ -47,4 +47,7 @@ class SocialAccountSerializer(serializers.ModelSerializer):
         model = SocialAccount
         fields = (
             "provider",
+            "profile_url",
+            "timestamp",
+            ""
         )

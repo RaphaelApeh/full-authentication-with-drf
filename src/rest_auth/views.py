@@ -13,6 +13,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
+from social_account.serializers import SocialAccountSerializer
 from .serializers import UserRegistrationSerializer, UserSerializer, LoginSerializer, \
     ChangePasswordSerializer, EmailComfirmationSerializer
 
@@ -94,6 +95,8 @@ class UserViewSet(ModelViewSet):
         match self.action:
             case "change_password":
                 self.serializer_class = ChangePasswordSerializer
+            case "social_account" | "social_accounts":
+                self.serializer_class = SocialAccountSerializer
         return super().get_serializer_class()
 
 
@@ -122,6 +125,21 @@ class UserViewSet(ModelViewSet):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data, status.HTTP_200_OK)
 
+    @action(detail=False, methods=["GET"], permission_classes=[permissions.IsAuthenticated])
+    def social_accounts(self, request, *args, **kwargs):
+        socials = request.user.social_accounts.all()
+        serializer = self.get_serializer(instance=socials, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=["GET"], permission_classes=[permissions.IsAuthenticated])
+    def social_account(self, request, *args, **kwargs):
+        if "provider" not in request.query_params:
+            raise 
+        provider = request.query_params["provider"]
+        social = request.user.social_accounts.get(provider=provider)
+        serializer = self.get_serializer(instance=social)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def get_permissions(self):
         match self.action:
