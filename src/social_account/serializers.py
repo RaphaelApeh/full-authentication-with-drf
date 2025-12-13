@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from .models import SocialProvider, SocialAccount
 from .exceptions import OauthException
 
-
 User = get_user_model()
 
 
@@ -51,3 +50,19 @@ class SocialAccountSerializer(serializers.ModelSerializer):
             "timestamp",
             ""
         )
+
+class DisconnectSerializer(serializers.Serializer):
+
+    social_id = serializers.ReadOnlyField()
+
+    def validate(self, attrs):
+        social_id = attrs["social_id"]
+        try:
+            social = SocialAccount.objects.get(pk=social_id)
+            attrs["social"] = social
+        except SocialAccount.DoesNotExist as e:
+            attrs["social"] = None
+            raise serializers.ValidationError(str(e))
+        if not attrs["social"]:
+            raise serializers.ValidationError("Invalid social account.")
+        return super().validate(attrs)

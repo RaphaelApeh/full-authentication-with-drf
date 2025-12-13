@@ -1,11 +1,13 @@
 import secrets
 
+import requests
 import oauthlib
 import oauthlib.oauth2
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from .exceptions import SocialInvokeError
 
 
 class SocialProviderManager(models.Manager):
@@ -23,9 +25,14 @@ class SocialProviderManager(models.Manager):
         )
         return url
 
+class SocialSettingMixin:
+
+    @property
+    def setting(self):
+        return getattr(settings, "SOCIAL_PROVIDER", {}).get(self.provider, {})
 
 
-class SocialProvider(models.Model):
+class SocialProvider(SocialSettingMixin, models.Model):
 
     provider = models.CharField(max_length=100, db_index=True)
     client_id = models.CharField(max_length=100)
@@ -49,11 +56,6 @@ class SocialProvider(models.Model):
         self._scope = scope = self.settings.get("SCOPE", [])
         return scope
 
-    @property
-    def settings(self):
-        provider = self.get_provider()
-        return settings.SOCIAL_PROVIDER[provider]
-
     def get_provider(self):
         if not self.provider:
             ImproperlyConfigured("Instance has not been saved.")
@@ -63,7 +65,7 @@ class SocialProvider(models.Model):
         request.session["state"] = secrets.token_urlsafe(16)
 
 
-class SocialAccount(models.Model):
+class SocialAccount(SocialSettingMixin, models.Model):
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -77,6 +79,23 @@ class SocialAccount(models.Model):
     profile_url = models.URLField(default="")
     profile_data = models.JSONField()
 
-
     class Meta:
         unique_together = ["user", "provider"]
+
+
+    def revoke(self, request, rovoke_url=None) -> None:
+        
+        revoke_url = rovoke_url or self.setting.get("REVOKE_URL")
+        if not revoke_url:
+            raise SocialInvokeError(revoke_url, "revoke url was not set.")
+        if not self.access_token:
+            raise ImproperlyConfigured(
+                f"SocialAccount({self.user}, {self.provider}).access_token is None"
+            )
+        response = requests.post(
+            revoke_url, 
+            data={"token": self.access_token},
+            headers={"content-type": "application/x-www-form-urlencoded"}
+        )
+        response.raise_for_status()
+        self.delete()

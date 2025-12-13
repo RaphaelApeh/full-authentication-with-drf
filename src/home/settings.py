@@ -158,7 +158,8 @@ SOCIAL_PROVIDER = {
         "AUTH_URL": "https://account.com/o/aouth2/v2/auth",
         "TOKEN_URL": "https://oauth2.googleapis.com/token",
         "USER_INFO_URL": "https://www.googleapis.com/oauth2/v2/userinfo",
-        "SCOPE": ["email", "profile", "openid"]
+        "SCOPE": ["email", "profile", "openid"],
+        "REVOKE_URL": "https://oauth2.googleapis.com/revoke"
     }
 }
 
