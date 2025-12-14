@@ -24,6 +24,8 @@ User = get_user_model()
 class RegistrationView(APIView):
 
     serializer_class = UserRegistrationSerializer
+    authentication_classes = []
+    permission_classes = []
 
     def post(self, request, *args, **kwargs):
 
@@ -40,6 +42,7 @@ class LoginView(APIView):
 
     serializer_class = LoginSerializer
     authentication_classes = []
+    permission_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
