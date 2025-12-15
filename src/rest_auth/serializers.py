@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.urls import reverse
+from django.template import loader
 from django.contrib.auth import get_user_model, authenticate, \
       login
 from django.contrib.auth.password_validation import validate_password
@@ -9,6 +10,7 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 
+from .helpers import send_email
 from .models import EmailConfirmation
 
 
@@ -22,6 +24,20 @@ class PasswordField(serializers.CharField):
         style["input_type"] = "password"
         kwargs["write_only"] = True
         super().__init__(**kwargs)
+
+
+class UserEmailMixin:
+
+    template_name = None
+
+    def get_template(self, context):
+        temp = loader.get_template(self.template_name)
+        return temp.render(context)
+
+    def send(self, request, to, subject, body=None, context=None):
+        if not body:
+            body = self.get_template({"user": request.user, "to": to, **{context or {}}})
+        send_email(subject, to, body)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -70,14 +86,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if not password and not password2 or password != password2:
             raise serializers.ValidationError("Password not Match.")
         credentials["email"] = email
-        for key, value in credentials.items():
-            if User.objects.filter(**{f"{key}__iexact": value}).exists():
-                raise serializers.ValidationError(f"{key.upper()} already exists.")
-        
+        fake_user = User(**credentials)
+        fake_user.full_clean()
         return {
             "email": email,
             "message": "Account veritication code sent."
         }
+    
+    def validate_email(self, value):
+        if not User.objects.filter(email=value).exists():
+            return value
+        raise serializers.ValidationError("Invalid email or username.")
     
     def save(self, **kwargs):
         if (instance := self.instance) is None:
@@ -125,6 +144,33 @@ class ChangePasswordSerializer(serializers.Serializer):
         return {
             "message": "Password change successfully."
         }
+
+
+class ForgotPasswordSerializer(UserEmailMixin, serializers.Serializer):
+
+    template_name = "forgot-password.txt"
+    
+    email = serializers.EmailField()
+
+    def validate(self, attrs):
+        email = attrs["email"]
+        request = self.context.get("request")
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            pass
+        else:
+            token = default_token_generator.make_token(user)
+            url = request.build_absolute(
+                reverse("change-forgot-password", args=(user.pk, token))
+            )
+            self.send(
+                request,
+                to=[email], 
+                subject="Forgot Password",
+                context={"url": url}
+            )
+        return super().validate(attrs)
 
 
 class UserSerializer(serializers.ModelSerializer):

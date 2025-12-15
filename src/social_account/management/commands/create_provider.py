@@ -3,6 +3,7 @@ from getpass import getpass
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
+from django.core.exceptions import ValidationError
 
 from social_account.models import SocialProvider
 
@@ -62,22 +63,28 @@ class Command(BaseCommand):
             provider_data["client_id"] = client_id
             provider_data["secret_key"] = secret_key
         
-        if all(provider_data[d] for d in provider_data):
-            provider = SocialProvider(
+        provider = SocialProvider(
                 provider=provider_name,
                 **provider_data
             )
-            if not options["dry_run"]:
-                provider.save()            
-                return self.stderr.write(self.style.SUCCESS("Provider Saved."))
-            else:
-                self.stderr.write(
-                    self.style.WARNING(
-                        "%s provider was not saved."
-                        "\nDry run was added as a parameter." % provider.provider
-                    )
+        try:
+            provider.full_clean()
+        except ValidationError as e:
+            errors = "\n".join(
+                [key + ": " + value for key, value in e.message_dict.items()]
+            )
+            raise CommandError("\nPlease correct the following errors:\n %s" % errors)
+        if not options["dry_run"]:
+            provider.save()            
+            return self.stderr.write(self.style.SUCCESS("Provider Saved."))
+        else:
+            self.stderr.write(
+                self.style.WARNING(
+                    "%s provider was not saved."
+                    "\nDry run was added as a parameter." % provider.provider
                 )
-                return
+            )
+            
         raise CommandError("Error: something went wrong.")
 
     def print_error(self, text):

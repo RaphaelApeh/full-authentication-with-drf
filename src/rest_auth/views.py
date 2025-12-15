@@ -1,10 +1,7 @@
-from django.urls import reverse
 from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.tokens import default_token_generator
-from django.core.validators import validate_email
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework import permissions, authentication
@@ -14,9 +11,11 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from social_account.serializers import SocialAccountSerializer
-from .serializers import UserRegistrationSerializer, UserSerializer, LoginSerializer, \
-    ChangePasswordSerializer, EmailComfirmationSerializer
-
+from .serializers import (
+    UserRegistrationSerializer, UserSerializer, LoginSerializer, \
+    ChangePasswordSerializer, EmailComfirmationSerializer,
+    ForgotPasswordSerializer
+)
 
 User = get_user_model()
 
@@ -56,10 +55,6 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
 
-    authentication_classes = [
-        authentication.TokenAuthentication, 
-        authentication.SessionAuthentication
-    ]
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, *args, **kwargs):
@@ -72,6 +67,7 @@ class LogoutView(APIView):
 class EmailConfirmationView(APIView):
 
     serializer_class = EmailComfirmationSerializer
+    authentication_classes = []
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -100,6 +96,8 @@ class UserViewSet(ModelViewSet):
                 self.serializer_class = ChangePasswordSerializer
             case "social_account" | "social_accounts":
                 self.serializer_class = SocialAccountSerializer
+            case "forgot_password":
+                self.serializer_class = ForgotPasswordSerializer
         return super().get_serializer_class()
 
 
@@ -143,6 +141,18 @@ class UserViewSet(ModelViewSet):
         social = request.user.social_accounts.get(provider=provider)
         serializer = self.get_serializer(instance=social)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(
+        detail=False, 
+        methods=["POST"],
+        url_name="forgot_password", 
+        authentication_classes=[]
+    )
+    def forgot_password(self, request, *args, **kwargs):
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def get_permissions(self):
         match self.action:
@@ -151,30 +161,6 @@ class UserViewSet(ModelViewSet):
                     permissions.IsAdminUser
                 ]
         return super().get_permissions()
-
-
-
-class ForgotPasswordView(APIView):
-    
-
-    def post(self, request, *args, **kwargs):
-
-        email  = request.data.get("email")
-        if email is not None:
-            try:
-                validate_email(email)
-            except ValidationError as e:
-                return Response({"Error": " ".join(e)})
-        qs = User.objects.filter(email__iexact=email)
-        if qs.exists():
-            user = qs.get()
-            token = default_token_generator.make_token(user)
-            url = reverse("change-forgot-password", args=(user.pk, token))
-            host_url = request.build_absolute_uri(f"{url}")
-            user.email_user("Forgot Password ?", f"Dear {user.username}, Link to change password {host_url} ")
-
-            return Response({"message": "Email sent."})
-        return Response({"Error": f"{email} does not exists."})
 
 
 class ChangeForgotPasswordView(APIView):
@@ -210,7 +196,6 @@ class ChangeForgotPasswordView(APIView):
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
-forgot_password_view = ForgotPasswordView.as_view()
 change_forgot_password_view = ChangeForgotPasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()
