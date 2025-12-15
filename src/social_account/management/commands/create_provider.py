@@ -1,5 +1,3 @@
-from getpass import getpass
-
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
@@ -29,6 +27,19 @@ class Command(BaseCommand):
             "--dryrun",
             action="store_true"
         )
+        parser.add_argument(
+            "--c",
+            "--client_id",
+            "--client-id",
+            dest="client_id",
+            required=False
+        )
+        parser.add_argument(
+            "--s",
+            "--secret_key",
+            dest="secret_key",
+            required=False
+        )
         
 
     def handle(self, *args, **options):
@@ -41,15 +52,17 @@ class Command(BaseCommand):
         if SocialProvider.objects.filter(provider=provider_name).exists():
             raise CommandError(self.style.WARNING("Provider already exists."))
         provider_setting = settings.SOCIAL_PROVIDER.get(provider_name, {})
-        client_id = provider_setting.get("CLIENT_ID", "")
-        secret_key = provider_setting.get("SECRET_KEY", "")
+        client_id = provider_setting.get("CLIENT_ID", "") or options.get("client_id")
+        secret_key = provider_setting.get("SECRET_KEY", "") or options.get("secret_key")
         count = 0
         while not options["no_input"] and count < 3:
-            client_id = getpass("Client ID: ")
-            secret_key = getpass("Secret Key: ")
-            if not client_id and not secret_key:
+            if not options.get("client_id"):
+                client_id = input("Client ID: ")
+            if not options.get("secret_key"):
+                secret_key = input("Secret Key: ")
+            if not client_id or not secret_key:
                 
-                self.print_error("Client ID or Secret Key is not provided")
+                self.print_error("Client ID/Secret Key is not provided")
                 count += 1
                 continue
             elif client_id and secret_key:
@@ -60,8 +73,8 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.WARNING(msg))
             raise CommandError(self.style.ERROR("Client ID or Secret Key is not provided"))
         else:
-            provider_data["client_id"] = client_id
-            provider_data["secret_key"] = secret_key
+            provider_data["client_id"] = client_id.strip()
+            provider_data["secret_key"] = secret_key.strip()
         
         provider = SocialProvider(
                 provider=provider_name,
@@ -84,8 +97,7 @@ class Command(BaseCommand):
                     "\nDry run was added as a parameter." % provider.provider
                 )
             )
-            
-        raise CommandError("Error: something went wrong.")
+            return
 
     def print_error(self, text):
         self.stderr.write(self.style.ERROR(text))
