@@ -82,13 +82,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "home.wsgi.application"
 
-if DEBUG:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5174"
-    ]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5174"
+]
 
 CORS_URLS_REGEX = r"^/api/.*$"
-
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -146,6 +146,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 PASSWORD_RESET_TIMEOUT = 3600
 
 DEFAULT_CALLBACK_URL = config("OAUTH_CALLBACK_URL")
+
+ACCOUNT_VERIFICATION = True
 
 SOCIAL_PROVIDER = {
     "github": {

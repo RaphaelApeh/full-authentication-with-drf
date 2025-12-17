@@ -6,9 +6,10 @@ from .base import BaseOauthCallbackAPIView, OauthLoginAPIView
 
 class GithubLoginAPIView(OauthLoginAPIView):
 
-    authentication_url = (
-        getattr(settings, "SOCIAL_PROVIDER", {}).get("AUTH_URL", "https://github.com/login/oauth/authorize")
+    authorization_url = (
+        getattr(settings, "SOCIAL_PROVIDER", {}).get("github", {}).get("AUTH_URL", "https://github.com/login/oauth/authorize")
     )
+    provider_name = "github"
 
 
 class GithubOauthCallbackView(BaseOauthCallbackAPIView):

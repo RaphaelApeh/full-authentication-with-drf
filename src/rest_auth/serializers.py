@@ -1,14 +1,15 @@
 from django.db import transaction
 from django.urls import reverse
+from django.conf import settings
 from django.template import loader
 from django.contrib.auth import get_user_model, authenticate, \
       login
 from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
-from rest_framework.authtoken.models import Token
 
 from .helpers import send_email
 from .models import EmailConfirmation
@@ -42,55 +43,54 @@ class UserEmailMixin:
 
 class LoginSerializer(serializers.Serializer):
 
-    password = PasswordField()
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[User.USERNAME_FIELD] = serializers.CharField()
+        self.fields["password"] = PasswordField()
 
     def validate(self, attrs):
-        credentials = {}
-        _username = User.USERNAME_FIELD
-        username = attrs.pop(_username)
-        password = attrs.pop("password")
-        credentials[_username] = username
-        credentials["password"] = password
+        credentials = {
+            User.USERNAME_FIELD: attrs.pop(User.USERNAME_FIELD),
+            "password": attrs.pop("password")
+        }
         request = self.context.get("request")
         user = authenticate(request, **credentials)
         if not user:
-            raise serializers.ValidationError("Invalid %s or password field." % _username)
+            raise serializers.ValidationError("Incorrect username or password.")
         login(request, user)
         update_last_login(None, user)
-        token, _ = Token.objects.get_or_create(user=user)
+        token = RefreshToken.for_user(user)
         attrs = {
-            "message": "Login successfully.",
-            "token": token.key
+            "access_token": str(token.access_token),
+            "refresh_token": str(token)
         }
         return super().validate(attrs)
     
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
 
+    password = PasswordField()
     password2 = PasswordField()
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password2']
 
     def validate(self, attrs):
-        credentials = {}
         username = attrs.pop("username")
         email = attrs.pop("email")
-        credentials["username"] = username
+        credentials = dict(username=username, email=email)
         password = attrs.get("password")
         password2 = attrs.get("password2")
         if not password and not password2 or password != password2:
             raise serializers.ValidationError("Password not Match.")
-        credentials["email"] = email
         fake_user = User(**credentials)
-        fake_user.full_clean()
+        fake_user.set_password(password)
+        fake_user.full_clean(exclude=("password",))
         return {
             "email": email,
-            "message": "Account veritication code sent."
+            "message": (
+                "Account veritication code sent." if settings.ACCOUNT_VERIFICATION else "Account created successfully"
+            )
         }
     
     def validate_email(self, value):
@@ -110,11 +110,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = User(**validated_data)
         user.set_password(password)
+        if settings.ACCOUNT_VERIFICATION:
+            user.is_active = False
+            token = default_token_generator.make_token(user)
+            url = reverse("change-forgot-password", args=(user.pk, token))
+            link_to_confirm = request.build_absolute_uri(f"{url}")
+            user.email_user("Account Veritication", f"Dear {user.username}, Verify your email:\n{link_to_confirm}")
+        else:
+            user.is_active = True
         user.save()
-        token = default_token_generator.make_token(user)
-        url = reverse("change-forgot-password", args=(user.pk, token))
-        link_to_confirm = request.build_absolute_uri(f"{url}")
-        user.email_user("Account Veritication", f"Dear {user.username}, Verify your email:\n{link_to_confirm}")
         return user
 
 

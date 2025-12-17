@@ -30,7 +30,7 @@ class RegistrationView(APIView):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data)
+        return Response(serializer.validated_data, status=status.HTTP_201_CREATED)
         
 
     def get_serializer(self, *args, **kwargs):

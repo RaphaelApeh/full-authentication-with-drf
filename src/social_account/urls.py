@@ -6,7 +6,7 @@ from .views.github import GithubOauthCallbackView, GithubLoginAPIView
 
 urlpatterns = [
 
-    path("disconnect/<int:social_id>/", DisconnectSocialAPIView.as_view(), "disconnect_social"),
+    path("disconnect/<int:social_id>/", DisconnectSocialAPIView.as_view(), name="disconnect_social"),
 
     # GitHub
     path("github/login/", GithubLoginAPIView.as_view(), name="github_login"),

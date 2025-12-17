@@ -12,9 +12,9 @@ class OauthLoginSerializer(serializers.Serializer):
     provider = serializers.CharField()
 
     def validate(self, attrs):
-        provider_name = attrs.pop("provider")
+        provider_name = attrs.get("provider")
         try:
-            SocialProvider.objects.get(provider_name)
+            SocialProvider.objects.get(provider=provider_name)
         except SocialProvider.DoesNotExist:
             raise serializers.ValidationError("%s is not a register provider" % provider_name)
         return attrs

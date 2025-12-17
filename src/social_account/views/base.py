@@ -20,12 +20,12 @@ User = get_user_model()
 
 class OauthLoginAPIView(OauthClientMixin, APIView):
 
-    authentication_url = None
+    authorization_url = None
     serializer_class = OauthLoginSerializer
 
     def get(self, request, *args, **kwargs):
 
-        serializer = self.get_serializer(data=request.query_params)
+        serializer = self.get_serializer(data=dict(provider=self.provider_name))
         serializer.is_valid(raise_exception=True)
         
         client = self.get_client(serializer.validated_data["provider"])

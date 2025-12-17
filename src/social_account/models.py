@@ -50,10 +50,14 @@ class SocialProvider(SocialSettingMixin, models.Model):
     objects = SocialProviderManager()
 
     @property
+    def setting(self):
+        return getattr(settings, "SOCIAL_PROVIDER", {})
+
+    @property
     def scope(self):
         if hasattr(self, "_scope") and self._scope:
             return self._scope
-        self._scope = scope = self.settings.get("SCOPE", [])
+        self._scope = scope = self.setting.get("SCOPE", [])
         return scope
 
     def get_provider(self):

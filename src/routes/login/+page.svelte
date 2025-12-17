@@ -1,7 +1,34 @@
 <script>
+    import { goto } from "$app/navigation";
     import "../../app.css";
+    import { LoginSocial} from "$lib/helpers/social";
+    import { BASEURL } from "$lib/helpers/base";
+
+    let error = false;
+    let errorMsg = "";
     let login = '';
     let password = '';
+    const handleLogin = async () =>{
+        const response =await fetch(
+            `${BASEURL}/login/`,
+            {
+                "headers":{
+                    "Content-Type": "application/json"
+                },
+                method: "POST",
+                body: JSON.stringify({username: login, password: password})
+            }
+        )
+        const data = await response.json();
+        if (!response.ok){
+            error = true;
+            errorMsg = data.non_field_errors[0];
+        }
+        localStorage.setItem("access_token", data.access_token)
+        localStorage.setItem("refresh_token", data.refresh_token)
+        console.log(data);
+        await goto("/");
+    }
 </script>
 
 <div class="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
@@ -37,6 +64,7 @@
                         </button>
 
                         <button
+                            on:click|preventDefault={() => LoginSocial("github", error, errorMsg)}
                             class="w-full max-w-xs font-bold shadow-sm rounded-lg py-3 bg-indigo-100 text-gray-800 flex items-center justify-center transition-all duration-300 ease-in-out focus:outline-none hover:shadow focus:shadow-sm focus:shadow-outline mt-5">
                             <div class="bg-white p-1 rounded-full">
                                 <svg class="w-6" viewBox="0 0 32 32">
@@ -49,6 +77,9 @@
                             </span>
                         </button>
                     </div>
+                        {#if error}
+                            <div class="flex items-center w-full max-w-xs font-bold shadow-sm rounded-lg py-3 bg-red-500 text-white flex items-center justify-center transition-all duration-300 ease-in-out focus:outline-none hover:shadow focus:shadow-sm focus:shadow-outline mt-5">{errorMsg}</div>
+                        {/if}
 
                     <div class="my-12 border-b text-center">
                         <div
@@ -56,18 +87,21 @@
                             Or sign up with e-mail
                         </div>
                     </div>
-                    <form action="/login" method="POST">
+                    <form on:submit|preventDefault={handleLogin}>
                     <div class="mx-auto max-w-xs">
                         <input
                             class="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+                            required
                             type="text" name="login" bind:value={login} placeholder="Login" />
                         <input
                             class="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white mt-5"
                             type="password"
                             name="password"
                             bind:value={password}
-                            placeholder="Password" />
+                            placeholder="Password"
+                            required />
                         <button
+                            type="submit"
                             class="mt-5 tracking-wide font-semibold bg-indigo-500 text-gray-100 w-full py-4 rounded-lg hover:bg-indigo-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none">
                             <svg class="w-6 h-6 -ml-2" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
