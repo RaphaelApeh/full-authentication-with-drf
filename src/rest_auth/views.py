@@ -30,11 +30,12 @@ class RegistrationView(APIView):
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_201_CREATED)
+        serializer.save()
+        return Response(status=status.HTTP_201_CREATED)
         
 
     def get_serializer(self, *args, **kwargs):
-        return self.serializer_class(*args, context={'request', self.request}, **kwargs)
+        return self.serializer_class(*args, context={'request': self.request}, **kwargs)
     
 
 class LoginView(APIView):
@@ -112,7 +113,7 @@ class UserViewSet(ModelViewSet):
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_200_OK)
 
 
     @action(

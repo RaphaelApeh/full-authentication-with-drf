@@ -1,6 +1,5 @@
 from django.db import transaction
 from django.urls import reverse
-from django.conf import settings
 from django.template import loader
 from django.contrib.auth import get_user_model, authenticate, \
       login
@@ -76,48 +75,28 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'password', 'password2']
 
     def validate(self, attrs):
-        username = attrs.pop("username")
-        email = attrs.pop("email")
+        username = attrs.get("username")
+        email = attrs.get("email")
         credentials = dict(username=username, email=email)
         password = attrs.get("password")
-        password2 = attrs.get("password2")
+        password2 = attrs.pop("password2")
         if not password and not password2 or password != password2:
             raise serializers.ValidationError("Password not Match.")
         fake_user = User(**credentials)
         fake_user.set_password(password)
         fake_user.full_clean(exclude=("password",))
-        return {
-            "email": email,
-            "message": (
-                "Account veritication code sent." if settings.ACCOUNT_VERIFICATION else "Account created successfully"
-            )
-        }
+        return super().validate(attrs)
     
     def validate_email(self, value):
         if not User.objects.filter(email=value).exists():
             return value
         raise serializers.ValidationError("Invalid email or username.")
-    
-    def save(self, **kwargs):
-        if (instance := self.instance) is None:
-            self.instance = self.create(self.data)
-        else:
-            self.instance = self.update(instance, self.data)
-        return self.instance
 
+    @transaction.atomic()
     def create(self, validated_data):
-        password = validated_data.get("password")
-        request = self.context.get("request")
+        password = validated_data.pop("password")
         user = User(**validated_data)
         user.set_password(password)
-        if settings.ACCOUNT_VERIFICATION:
-            user.is_active = False
-            token = default_token_generator.make_token(user)
-            url = reverse("change-forgot-password", args=(user.pk, token))
-            link_to_confirm = request.build_absolute_uri(f"{url}")
-            user.email_user("Account Veritication", f"Dear {user.username}, Verify your email:\n{link_to_confirm}")
-        else:
-            user.is_active = True
         user.save()
         return user
 
@@ -134,7 +113,7 @@ class ChangePasswordSerializer(serializers.Serializer):
         old_password = attrs.get("old_password")
         new_password = attrs.get("new_password")
         comfirm_password = attrs.get("comfirm_password")
-        if new_password or comfirm_password and new_password != comfirm_password:
+        if not new_password or not comfirm_password and new_password != comfirm_password:
             raise serializers.ValidationError("Password not Match.")
         try:
             validate_password(new_password)
@@ -145,9 +124,7 @@ class ChangePasswordSerializer(serializers.Serializer):
             user.save()
         else:
             raise serializers.ValidationError("Invalid password.")
-        return {
-            "message": "Password change successfully."
-        }
+        return super().validate(attrs)
 
 
 class ForgotPasswordSerializer(UserEmailMixin, serializers.Serializer):

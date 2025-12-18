@@ -10,10 +10,10 @@ User = get_user_model()
 def api_client():
     return APIClient()
 
-@pytest.fixture(autouse=True)
-def user():
-    user = User.objects.create_user("testuser", password="testpassword")
-    return user
+# @pytest.fixture(autouse=True)
+# def user():
+#     user = User.objects.create_user("testuser", password="testpassword")
+#     return user
 
 @pytest.fixture
 def token_qs():
