@@ -36,7 +36,11 @@ class UserEmailMixin:
 
     def send(self, request, to, subject, body=None, context=None):
         if not body:
-            body = self.get_template({"user": request.user, "to": to, **{context or {}}})
+            body = self.get_template({
+                "user": request.user, 
+                "to": to, 
+                **(context or {})}
+                )
         send_email(subject, to, body)
 
 
@@ -142,8 +146,8 @@ class ForgotPasswordSerializer(UserEmailMixin, serializers.Serializer):
             pass
         else:
             token = default_token_generator.make_token(user)
-            url = request.build_absolute(
-                reverse("change-forgot-password", args=(user.pk, token))
+            url = request.build_absolute_uri(
+                reverse("password_reset", args=(user.pk, token))
             )
             self.send(
                 request,
@@ -203,3 +207,22 @@ class EmailComfirmationSerializer(serializers.Serializer):
 
         return default_token_generator.check_token(user, token)
 
+class PasswordResetSerializer(serializers.Serializer):
+
+    user_pk = serializers.CharField()
+    password = PasswordField()
+    confirm_password = PasswordField()
+
+    def validate(self, attrs):
+        pk = User._meta.pk.to_python(user_pk=attrs["user_pk"])
+        password, password2 = attrs["password"], attrs["confirm_password"]
+        if not password or not password2 and password != password2:
+            raise serializers.ValidationError("Password not Match.")
+        
+        validate_password(password)
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid token or user_pk.")
+        user.set_password()
+        return super().validate(attrs)

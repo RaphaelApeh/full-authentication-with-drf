@@ -1,20 +1,19 @@
 from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework import permissions, authentication
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
 from social_account.serializers import SocialAccountSerializer
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, LoginSerializer, \
     ChangePasswordSerializer, EmailComfirmationSerializer,
-    ForgotPasswordSerializer
+    ForgotPasswordSerializer, PasswordResetSerializer
 )
 
 User = get_user_model()
@@ -164,39 +163,35 @@ class UserViewSet(ModelViewSet):
         return super().get_permissions()
 
 
-class ChangeForgotPasswordView(APIView):
+class PasswordResetView(APIView):
 
+    serializer_class = PasswordResetSerializer
 
     def post(self, request, *args, **kwargs):
-
-        user_pk = kwargs["user_pk"]
         token = kwargs["token"]
-        new_password = request.data.get("new_password")
-        confirm_password = request.data.get("confirm_password")
-        
-        qs = User.objects.filter(pk=user_pk)
-        if not qs.exists():
-            return Response({"error": "Invalid data."})
+        user_pk = kwargs["user_pk"]
+        if not self.check_token(user_pk, token):
+            raise NotFound()
+        serializer = self.get_serializer(data={**request.data, "user_pk": user_pk})
+        serializer.is_valid(raise_exception=True)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+    def check_token(self, user_pk, token):
+        pk = User._meta.pk.to_python(user_pk)
         try:
-            validate_password(new_password)
-        except ValidationError as e:
-            return Response({"error": " ".join(e)})
-        if new_password != confirm_password:
-            return Response({'error': "Password not match.."})
-        try:
-            _user = qs.first()
-        except (User.MultipleObjectsReturned, User.DoesNotExist):
-            return Response({"error": "Error ..."})
-        if default_token_generator.check_token(_user, token):
-            _user.set_password(new_password)
-            _user.save()
-            return Response({"message": "password set successfully."})
-        return Response({"error": "Something went wrong."})
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return False
+        return default_token_generator.check_token(user, token)
+
+    def get_serializer(self, *args, **kwargs):
+        context = {"request": self.request, "view": self}
+        return self.serializer_class(*args, context=context, **kwargs)
 
 
 
 login_view = LoginView.as_view()
 logout_view = LogoutView.as_view()
-change_forgot_password_view = ChangeForgotPasswordView.as_view()
 email_confirmation_view = EmailConfirmationView.as_view()
 registration_view = RegistrationView.as_view()

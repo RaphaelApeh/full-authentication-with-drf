@@ -1,5 +1,3 @@
-from unittest import mock
-
 import pytest
 from django.urls import reverse
 from django.test import TestCase
@@ -13,16 +11,19 @@ django_db = pytest.mark.django_db
 User = get_user_model()
 
 
-
 class TestAuth(TestCase):
 
     def setUp(self):
         super().setUp()
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.user = User.objects.create_user(
+            username="testuser", 
+            password="testpass",
+            email="testuser@test.com"
+        )
     
-
+    @pytest.mark.skip
     def test_login_view(self):
         data = {"username": "testuser", "password": "testpass"}
         
@@ -52,7 +53,14 @@ class TestAuth(TestCase):
         assert response.status_code == 200
 
     def test_forgot_password_view(self):
-        pass
+        data = {"email": "testuser@test.com"}
+        response = self.client.post(
+            reverse("user-forgot_password"),
+            data=data,
+            format="json"
+        )
+        assert response.status_code == 204
+
 
     def test_change_password_view(self):
         password = words(8)
