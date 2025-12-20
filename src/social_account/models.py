@@ -51,7 +51,10 @@ class SocialProvider(SocialSettingMixin, models.Model):
 
     @property
     def setting(self):
-        return getattr(settings, "SOCIAL_PROVIDER", {})
+        social_provider = getattr(settings, "SOCIAL_PROVIDER", {})
+        if not self.provider:
+            return {}
+        return social_provider.get(self.provider, {})
 
     @property
     def scope(self):
@@ -66,7 +69,25 @@ class SocialProvider(SocialSettingMixin, models.Model):
         return self.provider
     
     def set_session_state(self, request) -> None:
-        request.session["state"] = secrets.token_urlsafe(16)
+        auth = SocialAuth.objects.create()
+        return auth.state
+
+
+class SocialAuth(models.Model):
+
+    code = models.CharField(max_length=100, default="", db_index=True)
+    state = models.CharField(
+        max_length=100, 
+        default=secrets.token_urlsafe(16)
+    )
+    expired = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+    def __str__(self):
+        if code := self.code:
+            return code
+        return self.state
 
 
 class SocialAccount(SocialSettingMixin, models.Model):

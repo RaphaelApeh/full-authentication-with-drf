@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import SocialProvider, SocialAccount
+from .models import SocialProvider, SocialAccount, SocialAuth
 from .exceptions import OauthException
 
 User = get_user_model()
@@ -29,10 +29,14 @@ class OauthCallbackSerialzier(serializers.Serializer):
     error = serializers.CharField(required=False)
 
     def validate(self, attrs):
-        request = self.context["request"]
-        if (state := attrs["state"]) and state != request.session["state"]:
-            raise OauthException()
-        del request.session["state"]
+        state = attrs["state"]
+        
+        try:
+            obj = SocialAuth.objects.get(state=state)
+        except SocialAuth.DoesNotExist:
+            raise serializers.ValidationError("")
+        obj.expired = False
+        obj.save()
         error = attrs.get("error", "")
         if error:
             raise OauthException()

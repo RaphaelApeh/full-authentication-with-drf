@@ -154,7 +154,7 @@ SOCIAL_PROVIDER = {
         "AUTH_URL": "https://github.com/login/oauth/authorize",
         "TOKEN_URL": "https://github.com/login/oauth/access_token",
         "USER_INFO_URL": "https://github.com/user",
-        "SCOPES": ["read:org", "profile"]
+        "SCOPE": ["read:user", "profile", "email"]
     },
     "google": {
         "AUTH_URL": "https://account.com/o/aouth2/v2/auth",
