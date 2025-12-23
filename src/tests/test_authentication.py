@@ -1,10 +1,12 @@
 import pytest
 from django.urls import reverse
-from django.test import TestCase
+from django.utils.encoding import force_str
 from django.utils.lorem_ipsum import words
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
+from django.contrib.auth.tokens import default_token_generator
 
+from .base import TestCase
 
 django_db = pytest.mark.django_db
 
@@ -46,11 +48,11 @@ class TestAuth(TestCase):
             data=data,
             format="json"
         )
-        assert response.status_code == 201
+        self.assertStatusCode(response, expected_code=201)
         user = User.objects.get(email=data["email"])
         self.client.force_authenticate(user)
         response = self.client.get(reverse("user-me"))
-        assert response.status_code == 200
+        self.assertStatusCode(response, expected_code=200)
 
     def test_forgot_password_view(self):
         data = {"email": "testuser@test.com"}
@@ -61,6 +63,29 @@ class TestAuth(TestCase):
         )
         assert response.status_code == 204
 
+
+    def test_password_reset_view(self):
+        user = self.user
+        user.is_active = False
+        user.save()
+        token = default_token_generator.make_token(user)
+        user_pk = force_str(user.pk)
+        kwargs = {"token": token, "user_pk": user_pk}
+        password = words(8)[::-1]
+        data = {
+            "password": password,
+            "confirm_password": password
+        }
+        response = self.client.post(
+            reverse("password_reset", kwargs=kwargs),
+            data=data,
+            format="json"
+        )
+        self.assertStatusCode(response)
+        user.refresh_from_db()
+        self.assertFalse(user.check_password("testpass"))
+        self.assertTrue(user.check_password(data["password"]))
+        self.assertTrue(user.is_active)
 
     def test_change_password_view(self):
         password = words(8)
@@ -76,7 +101,7 @@ class TestAuth(TestCase):
             data=data,
             format="json"
         )
-        response.status_code == 200
+        self.assertStatusCode(response)
         user.refresh_from_db()
         self.assertIsNone(response.data) # no errors
         assert user.check_password(data["new_password"])

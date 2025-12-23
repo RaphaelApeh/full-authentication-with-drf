@@ -214,7 +214,7 @@ class PasswordResetSerializer(serializers.Serializer):
     confirm_password = PasswordField()
 
     def validate(self, attrs):
-        pk = User._meta.pk.to_python(user_pk=attrs["user_pk"])
+        pk = User._meta.pk.to_python(attrs["user_pk"])
         password, password2 = attrs["password"], attrs["confirm_password"]
         if not password or not password2 and password != password2:
             raise serializers.ValidationError("Password not Match.")
@@ -224,5 +224,7 @@ class PasswordResetSerializer(serializers.Serializer):
             user = User.objects.get(pk=pk)
         except User.DoesNotExist:
             raise serializers.ValidationError("Invalid token or user_pk.")
-        user.set_password()
+        user.set_password(password)
+        user.is_active = True
+        user.save()
         return super().validate(attrs)
