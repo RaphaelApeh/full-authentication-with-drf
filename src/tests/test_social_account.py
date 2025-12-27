@@ -51,4 +51,22 @@ class SocailTestCase(TestCase):
             data = view._fetch_userinfo(request, client_mock)
             self.assertIsNotNone(data)
             assert request.session["username"] == "johndoe"
-        
+    
+
+    def test_oauth_callback(self):
+        request = self.factory.get("/")
+        request_mock = mock.MagicMock()
+        client_mock = mock.MagicMock()
+        request.session = {}
+        request_mock.json.return_value = {
+            "username": "johndoe", 
+            "email": "johndoe@test.com"
+        }
+        client_mock.access_token.return_value = "token"
+        request_mock.raise_for_status.return_value = None
+        view = BaseOauthCallbackAPIView.as_view()
+        view.request = request
+        view.redirect_url="https://example.com/redirect",
+        view.userinfo_url="https://example.com/user",
+        view.token_url = "https://example.com/token"
+        view(request)

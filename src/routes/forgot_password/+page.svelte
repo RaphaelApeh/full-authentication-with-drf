@@ -1,4 +1,5 @@
 <script>
+    import "../../app.css";
     import { BASEURL } from "$lib/helpers/base";
 
     let email = '';
@@ -66,6 +67,9 @@
                     {/if}
                 </div>
             </div>
+            <p class="mt-6 text-xs text-gray-600 text-center">
+                <a class="border-b border-gray-500 border-dotted" href="/login">Remember password?</a>
+            </p>
         </div>
     </div>
 </div>
